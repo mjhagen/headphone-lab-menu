@@ -18,6 +18,18 @@ Audio Unit, and plays the result through the selected output.
 
 Everything happens locally. The app has no networking, analytics, or telemetry.
 
+## Download
+
+Download the latest pre-built app from
+[GitHub Releases](https://github.com/mjhagen/headphone-lab-menu/releases/latest),
+unzip it, and move **Headphone Lab Menu.app** to `/Applications`.
+
+Release builds are currently ad-hoc signed rather than notarized with an Apple
+Developer ID. On first launch, macOS may block the app. Open **System Settings
+→ Privacy & Security**, confirm that you trust the download, and choose
+**Open Anyway**. Headphone Lab itself is proprietary and must be installed
+separately.
+
 ## Requirements
 
 - macOS 14.2 or newer
