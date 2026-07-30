@@ -30,7 +30,8 @@ Lab itself is proprietary and must be installed separately.
 ## Requirements
 
 - macOS 14.2 or newer
-- beyerdynamic Headphone Lab with its Audio Unit installed at:
+- [beyerdynamic Headphone Lab](https://beyerdynamic.com/headphone-lab-software-bddownload)
+  with its Audio Unit installed at:
   `/Library/Audio/Plug-Ins/Components/Headphone Lab.component`
 
 The first launch requests **System Audio Recording** permission. This permission
