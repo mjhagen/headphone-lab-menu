@@ -166,7 +166,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
   private func refreshMenu() {
     busy = false
     toggleItem.isEnabled = true
-    toggleItem.title = pipeline.isRunning ? "Disable Headphone Lab" : "Enable Headphone Lab"
+    toggleItem.title = "Enable Headphone Lab"
     toggleItem.state = pipeline.isRunning ? .on : .off
     editorItem.isEnabled = pipeline.isRunning
     outputItem.title = pipeline.isRunning ? "Output: \(pipeline.outputName)" : "Output: —"
