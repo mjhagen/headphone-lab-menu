@@ -1,0 +1,20 @@
+# Swift Package Manager
+/.build/
+/.swiftpm/
+
+# App bundles and release artifacts
+/build/
+/*.zip
+
+# Generated icon working files (the Icon Composer source lives in Resources/)
+/Assets/
+
+# Xcode and macOS
+xcuserdata/
+*.xcuserstate
+.DS_Store
+
+# Local configuration
+.env
+.env.*
+!.env.example

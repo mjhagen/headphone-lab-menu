@@ -1,0 +1,34 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: macos-26
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          sw_vers
+          swift --version
+          xcodebuild -version
+
+      - name: Test
+        run: swift test
+
+      - name: Build app
+        run: make app
+
+      - name: Verify bundle
+        run: |
+          codesign --verify --deep --strict --verbose=2 "build/Headphone Lab Menu.app"
+          test -f "build/Headphone Lab Menu.app/Contents/Resources/Assets.car"
+          test -f "build/Headphone Lab Menu.app/Contents/Resources/AppIcon.icns"
