@@ -24,11 +24,8 @@ Download the latest pre-built app from
 [GitHub Releases](https://github.com/mjhagen/headphone-lab-menu/releases/latest),
 unzip it, and move **Headphone Lab Menu.app** to `/Applications`.
 
-Release builds are currently ad-hoc signed rather than notarized with an Apple
-Developer ID. On first launch, macOS may block the app. Open **System Settings
-→ Privacy & Security**, confirm that you trust the download, and choose
-**Open Anyway**. Headphone Lab itself is proprietary and must be installed
-separately.
+Release builds are signed with a Developer ID and notarized by Apple. Headphone
+Lab itself is proprietary and must be installed separately.
 
 ## Requirements
 
@@ -59,12 +56,17 @@ Launch it directly with `make run`, or install it in `/Applications` with:
 make install
 ```
 
-Local builds are ad-hoc signed. Distributable builds should use a Developer ID
-certificate and Apple notarization:
+Local builds are ad-hoc signed. Maintainers can create a hardened-runtime,
+Developer ID-signed and notarized archive using a `notarytool` Keychain
+profile:
 
 ```sh
-make app SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+xcrun notarytool store-credentials "headphone-lab-menu"
+make notarize VERSION=1.0.0 \
+  SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
 ```
+
+The notarized ZIP and SHA-256 checksum are written to `build/`.
 
 The full app build uses Xcode's asset compiler for
 `Resources/AppIcon.icon`. A source-only build can be performed with

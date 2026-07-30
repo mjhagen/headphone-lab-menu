@@ -10,3 +10,4 @@ All notable changes to this project will be documented here.
 - Persist Audio Unit state between launches.
 - Avoid permanent virtual audio drivers by using Core Audio process taps.
 - Add an Icon Composer app icon.
+- Sign and notarize the downloadable app with an Apple Developer ID.
