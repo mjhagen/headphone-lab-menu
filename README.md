@@ -81,8 +81,9 @@ Use the headphones icon in the menu bar to:
 - open Headphone Lab's native configuration editor; or
 - quit the app.
 
-Closing the configuration editor hides it and leaves processing active.
-Headphone Lab settings are restored on the next launch.
+Closing the configuration editor releases its graphics resources while leaving
+processing active. Headphone Lab settings are restored when the editor or app
+is opened again.
 
 ## Known limitations
 

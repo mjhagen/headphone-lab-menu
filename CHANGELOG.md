@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented here.
 
+## 1.0.1 - 2026-08-01
+
+- Release the Headphone Lab editor when it closes so its hidden Metal render
+  loop cannot continue consuming GPU resources.
+
 ## 1.0.0 - 2026-07-30
 
 - Initial open-source release.

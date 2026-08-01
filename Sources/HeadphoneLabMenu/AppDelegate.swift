@@ -111,7 +111,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         : NSSize(width: 900, height: 620)
       let window = NSWindow(
         contentRect: NSRect(origin: .zero, size: contentSize),
-        styleMask: [.titled, .closable, .miniaturizable, .resizable],
+        styleMask: [.titled, .closable, .resizable],
         backing: .buffered,
         defer: false
       )
@@ -130,7 +130,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
   func windowShouldClose(_ sender: NSWindow) -> Bool {
     pipeline.saveState()
-    sender.orderOut(nil)
+    discardEditor()
     return false
   }
 
