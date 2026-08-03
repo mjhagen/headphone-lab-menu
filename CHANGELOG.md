@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented here.
 
+## 2.0.1 - 2026-08-03
+
+- Tighten the output-trim label and value around the visible knob while keeping
+  its larger interaction area.
+- Add a prominent Settings screenshot to the README.
+
 ## 2.0.0 - 2026-08-03
 
 - Replace the proprietary beyerdynamic Headphone Lab host with a native,

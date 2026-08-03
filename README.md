@@ -4,6 +4,8 @@ A tiny, native macOS menu-bar equalizer for system audio. Headphone EQ loads
 standard Equalizer APO parametric profiles without requiring a virtual audio
 driver, a DAW, or a permanent background service.
 
+![Headphone EQ Settings with the AutoEq catalog, live spectrum, output trim, and peak limiter](docs/settings.png)
+
 ## How it works
 
 The app creates a private Core Audio process tap for the current output device,
@@ -117,7 +119,7 @@ Developer ID-signed and notarized archive using a `notarytool` Keychain profile:
 
 ```sh
 xcrun notarytool store-credentials "headphone-lab-menu"
-make notarize VERSION=2.0.0 \
+make notarize VERSION=2.0.1 \
   SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
 ```
 
