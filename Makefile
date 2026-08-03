@@ -19,6 +19,7 @@ endif
 
 app:
 	swift build -c release
+	mkdir -p build
 	rm -rf "$(STAGING_ROOT)"
 	mkdir -p "$(STAGING_APP_DIR)/Contents/MacOS" \
 		"$(STAGING_APP_DIR)/Contents/Resources"
