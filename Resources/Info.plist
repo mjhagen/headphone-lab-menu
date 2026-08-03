@@ -5,7 +5,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleExecutable</key>
-    <string>HeadphoneLabMenu</string>
+    <string>HeadphoneEQ</string>
     <key>CFBundleIdentifier</key>
     <string>nl.mingo.HeadphoneLabMenu</string>
     <key>CFBundleIconFile</key>
@@ -15,19 +15,19 @@
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
-    <string>Headphone Lab Menu</string>
+    <string>Headphone EQ</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.1</string>
+    <string>2.0.0</string>
     <key>CFBundleVersion</key>
-    <string>2</string>
+    <string>3</string>
     <key>LSMinimumSystemVersion</key>
     <string>14.2</string>
     <key>LSUIElement</key>
     <true/>
     <key>NSAudioCaptureUsageDescription</key>
-    <string>Headphone Lab Menu captures system playback so it can process the audio through the beyerdynamic Headphone Lab plug-in.</string>
+    <string>Headphone EQ captures system playback so it can apply your selected equalizer profile.</string>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright © 2026 Mingo Hagen</string>
 </dict>

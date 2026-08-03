@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve Headphone Lab Menu.
+Thanks for helping improve Headphone EQ.
 
 ## Development setup
 
@@ -9,7 +9,7 @@ You need:
 - macOS 14.2 or newer
 - Swift 6 / Xcode 16 or newer for source builds
 - A recent Xcode with Icon Composer support for a complete `.app` build
-- beyerdynamic Headphone Lab installed to exercise the live audio path
+- a stereo output device to exercise the live audio path
 
 Build and test the source:
 
@@ -28,8 +28,8 @@ make app
 
 Keep changes focused and explain how you tested them. For audio-path changes,
 include the output device, sample rate, and macOS version used for testing.
-Never commit the proprietary Headphone Lab plug-in, credentials, signing
-certificates, provisioning profiles, or captured audio.
+Never commit credentials, signing certificates, provisioning profiles, imported
+third-party profiles, or captured audio.
 
 By contributing, you agree that your contribution is licensed under the
 project's MIT License.

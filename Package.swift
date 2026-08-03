@@ -3,22 +3,23 @@
 import PackageDescription
 
 let package = Package(
-  name: "HeadphoneLabMenu",
+  name: "HeadphoneEQ",
   platforms: [.macOS("14.2")],
   targets: [
     .executableTarget(
-      name: "HeadphoneLabMenu",
-      dependencies: ["AudioUnitUIBridge"],
+      name: "HeadphoneEQ",
+      dependencies: ["AudioBridge"],
       path: "Sources/HeadphoneLabMenu",
       linkerSettings: [
         .linkedFramework("AppKit"),
+        .linkedFramework("Accelerate"),
         .linkedFramework("AVFoundation"),
         .linkedFramework("AudioToolbox"),
         .linkedFramework("CoreAudio"),
       ]
     ),
     .target(
-      name: "AudioUnitUIBridge",
+      name: "AudioBridge",
       path: "Sources/AudioUnitUIBridge",
       publicHeadersPath: "include",
       linkerSettings: [
@@ -27,9 +28,9 @@ let package = Package(
       ]
     ),
     .testTarget(
-      name: "AudioUnitUIBridgeTests",
-      dependencies: ["AudioUnitUIBridge"],
-      path: "Tests/AudioUnitUIBridgeTests",
+      name: "HeadphoneEQTests",
+      dependencies: ["AudioBridge", "HeadphoneEQ"],
+      path: "Tests",
       linkerSettings: [
         .linkedFramework("AVFoundation")
       ]

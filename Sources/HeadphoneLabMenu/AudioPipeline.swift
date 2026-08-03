@@ -1,6 +1,6 @@
 import AVFoundation
+import AudioBridge
 import AudioToolbox
-import AudioUnitUIBridge
 import CoreAudio
 import Foundation
 
@@ -9,49 +9,50 @@ import Foundation
 final class AudioPipeline {
   private(set) var isRunning = false
   private(set) var outputName = "Current output"
-  private(set) var effect: AVAudioUnit?
-
   private var engine: AVAudioEngine?
   private var sourceNode: AVAudioSourceNode?
+  private var equalizer: AVAudioUnitEQ?
+  private var peakLimiter: AVAudioUnitEffect?
+  private var safetyTrim: AVAudioUnitEQ?
   private var ioProcID: AudioDeviceIOProcID?
   private var ring: OpaquePointer?
+  private var analysisRing: OpaquePointer?
+  private var analysisTapInstalled = false
+  private var analysisSampleRate = 48_000.0
+  private let spectrumAnalyzer = AudioSpectrumAnalyzer()
   private var tapID = AudioObjectID(kAudioObjectUnknown)
   private var aggregateID = AudioObjectID(kAudioObjectUnknown)
 
-  private let stateDefaultsKey = "HeadphoneLabAudioUnitState"
-
-  func start() async throws {
+  func start(
+    profile: EQProfile?,
+    userGain: Float = 0,
+    peakLimiterEnabled: Bool = false
+  ) async throws {
     guard !isRunning else { return }
 
-    var component = AudioComponentDescription(
+    let newEngine = AVAudioEngine()
+    let newEqualizer = AVAudioUnitEQ(numberOfBands: EQProfile.maximumFilterCount)
+    let limiterDescription = AudioComponentDescription(
       componentType: kAudioUnitType_Effect,
-      componentSubType: fourCC("BdHL"),
-      componentManufacturer: fourCC("Beyd"),
+      componentSubType: kAudioUnitSubType_PeakLimiter,
+      componentManufacturer: kAudioUnitManufacturer_Apple,
       componentFlags: 0,
       componentFlagsMask: 0
     )
-    guard AudioComponentFindNext(nil, &component) != nil else {
-      throw AudioRouteError.pluginMissing
-    }
-
-    let loadedEffect = try await AVAudioUnit.instantiate(
-      with: component,
-      options: []
+    let newPeakLimiter = AVAudioUnitEffect(audioComponentDescription: limiterDescription)
+    let newSafetyTrim = AVAudioUnitEQ(numberOfBands: 1)
+    newSafetyTrim.bands[0].bypass = true
+    configure(newEqualizer, with: profile, userGain: userGain)
+    configurePeakLimiter(
+      newPeakLimiter,
+      safetyTrim: newSafetyTrim,
+      enabled: peakLimiterEnabled
     )
-    if let savedState = UserDefaults.standard.data(forKey: stateDefaultsKey),
-      let state = try? PropertyListSerialization.propertyList(
-        from: savedState,
-        options: [],
-        format: nil
-      ) as? [String: Any]
-    {
-      loadedEffect.auAudioUnit.fullState = state
-    }
-
-    let newEngine = AVAudioEngine()
-    newEngine.attach(loadedEffect)
-    // Instantiating the engine and effect registers this process with Core Audio,
-    // which lets the global tap exclude the app and avoid a feedback loop.
+    newEngine.attach(newEqualizer)
+    newEngine.attach(newPeakLimiter)
+    newEngine.attach(newSafetyTrim)
+    // Instantiating the engine registers this process with Core Audio, which lets
+    // the global tap exclude the app and avoid a feedback loop.
     _ = newEngine.outputNode
 
     do {
@@ -76,7 +77,7 @@ final class AudioPipeline {
       let tapDescription = CATapDescription(
         stereoGlobalTapButExcludeProcesses: [ownProcess]
       )
-      tapDescription.name = "Headphone Lab System Audio"
+      tapDescription.name = "Headphone EQ System Audio"
       tapDescription.uuid = UUID()
       tapDescription.isPrivate = true
       tapDescription.muteBehavior = .mutedWhenTapped
@@ -98,7 +99,7 @@ final class AudioPipeline {
         ?? "nl.mingo.HeadphoneLabMenu"
       let aggregateUID = "\(bundleIdentifier).route.\(UUID().uuidString)"
       let description: [String: Any] = [
-        kAudioAggregateDeviceNameKey: "Headphone Lab Route",
+        kAudioAggregateDeviceNameKey: "Headphone EQ Route",
         kAudioAggregateDeviceUIDKey: aggregateUID,
         kAudioAggregateDeviceIsPrivateKey: true,
         kAudioAggregateDeviceTapListKey: [
@@ -165,8 +166,23 @@ final class AudioPipeline {
       let source = AVAudioSourceNode(format: format, renderBlock: renderBlock)
       sourceNode = source
       newEngine.attach(source)
-      newEngine.connect(source, to: loadedEffect, format: format)
-      newEngine.connect(loadedEffect, to: newEngine.mainMixerNode, format: format)
+      newEngine.connect(source, to: newEqualizer, format: format)
+      newEngine.connect(newEqualizer, to: newPeakLimiter, format: format)
+      newEngine.connect(newPeakLimiter, to: newSafetyTrim, format: format)
+      newEngine.connect(newSafetyTrim, to: newEngine.mainMixerNode, format: format)
+      guard let newAnalysisRing = HLMRingCreate(32_768) else {
+        throw AudioRouteError.osStatus(
+          kAudio_MemFullError,
+          "Allocating the spectrum buffer"
+        )
+      }
+      analysisRing = newAnalysisRing
+      analysisSampleRate = format.sampleRate
+      newSafetyTrim.installTap(onBus: 0, bufferSize: 1_024, format: format) {
+        buffer, _ in
+        HLMRingWriteAnalyzed(newAnalysisRing, buffer.audioBufferList, buffer.frameLength)
+      }
+      analysisTapInstalled = true
       newEngine.prepare()
       try newEngine.start()
 
@@ -194,42 +210,111 @@ final class AudioPipeline {
       )
 
       engine = newEngine
-      effect = loadedEffect
+      equalizer = newEqualizer
+      peakLimiter = newPeakLimiter
+      safetyTrim = newSafetyTrim
       isRunning = true
     } catch {
       newEngine.stop()
-      newEngine.detach(loadedEffect)
+      if analysisTapInstalled {
+        newSafetyTrim.removeTap(onBus: 0)
+        analysisTapInstalled = false
+      }
+      newEngine.detach(newSafetyTrim)
+      newEngine.detach(newPeakLimiter)
+      newEngine.detach(newEqualizer)
       cleanupCoreAudioObjects()
       throw error
     }
   }
 
   func stop() {
-    saveState()
     engine?.stop()
     stopCapture()
-    if let effect, let engine {
-      engine.detach(effect)
+    if analysisTapInstalled {
+      safetyTrim?.removeTap(onBus: 0)
+      analysisTapInstalled = false
+    }
+    if let safetyTrim, let engine {
+      engine.detach(safetyTrim)
+    }
+    if let peakLimiter, let engine {
+      engine.detach(peakLimiter)
+    }
+    if let equalizer, let engine {
+      engine.detach(equalizer)
     }
     if let sourceNode, let engine {
       engine.detach(sourceNode)
     }
     engine = nil
-    effect = nil
+    equalizer = nil
+    peakLimiter = nil
+    safetyTrim = nil
     sourceNode = nil
     isRunning = false
     cleanupCoreAudioObjects()
   }
 
-  func saveState() {
-    guard let state = effect?.auAudioUnit.fullState,
-      let data = try? PropertyListSerialization.data(
-        fromPropertyList: state,
-        format: .binary,
-        options: 0
-      )
-    else { return }
-    UserDefaults.standard.set(data, forKey: stateDefaultsKey)
+  func apply(profile: EQProfile?, userGain: Float = 0) {
+    guard let equalizer else { return }
+    configure(equalizer, with: profile, userGain: userGain)
+  }
+
+  func setPeakLimiter(_ enabled: Bool) {
+    guard let peakLimiter, let safetyTrim else { return }
+    configurePeakLimiter(peakLimiter, safetyTrim: safetyTrim, enabled: enabled)
+  }
+
+  func spectrumSnapshot() -> SpectrumSnapshot? {
+    guard let analysisRing else { return nil }
+    return spectrumAnalyzer.snapshot(from: analysisRing, sampleRate: analysisSampleRate)
+  }
+
+  private func configure(
+    _ equalizer: AVAudioUnitEQ,
+    with profile: EQProfile?,
+    userGain: Float
+  ) {
+    guard let profile else {
+      equalizer.globalGain = userGain
+      for band in equalizer.bands { band.bypass = true }
+      return
+    }
+    profile.configure(equalizer, userGain: userGain)
+  }
+
+  private func configurePeakLimiter(
+    _ limiter: AVAudioUnitEffect,
+    safetyTrim: AVAudioUnitEQ,
+    enabled: Bool
+  ) {
+    AudioUnitSetParameter(
+      limiter.audioUnit,
+      kLimiterParam_AttackTime,
+      kAudioUnitScope_Global,
+      0,
+      0.001,
+      0
+    )
+    AudioUnitSetParameter(
+      limiter.audioUnit,
+      kLimiterParam_DecayTime,
+      kAudioUnitScope_Global,
+      0,
+      0.04,
+      0
+    )
+    AudioUnitSetParameter(
+      limiter.audioUnit,
+      kLimiterParam_PreGain,
+      kAudioUnitScope_Global,
+      0,
+      0,
+      0
+    )
+    limiter.auAudioUnit.shouldBypassEffect = !enabled
+    safetyTrim.globalGain = enabled ? -0.3 : 0
   }
 
   private func cleanupCoreAudioObjects() {
@@ -245,6 +330,10 @@ final class AudioPipeline {
     if let ring {
       HLMRingDestroy(ring)
       self.ring = nil
+    }
+    if let analysisRing {
+      HLMRingDestroy(analysisRing)
+      self.analysisRing = nil
     }
   }
 

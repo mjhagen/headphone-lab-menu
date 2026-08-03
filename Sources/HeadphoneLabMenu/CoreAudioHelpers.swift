@@ -6,7 +6,6 @@ enum AudioRouteError: LocalizedError {
   case noOutputDevice
   case unexpectedInputChannels(UInt32)
   case unsupportedAudioFormat
-  case pluginMissing
 
   var errorDescription: String? {
     switch self {
@@ -30,8 +29,6 @@ enum AudioRouteError: LocalizedError {
         "The audio tap exposed \(channels) channels instead of stereo. Select an output-only device, such as headphones, and try again."
     case .unsupportedAudioFormat:
       return "The selected output device did not provide 32-bit floating-point PCM audio."
-    case .pluginMissing:
-      return "The beyerdynamic Headphone Lab Audio Unit is not installed."
     }
   }
 }

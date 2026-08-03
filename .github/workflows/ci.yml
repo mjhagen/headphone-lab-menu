@@ -29,6 +29,6 @@ jobs:
 
       - name: Verify bundle
         run: |
-          codesign --verify --deep --strict --verbose=2 "build/Headphone Lab Menu.app"
-          test -f "build/Headphone Lab Menu.app/Contents/Resources/Assets.car"
-          test -f "build/Headphone Lab Menu.app/Contents/Resources/AppIcon.icns"
+          codesign --verify --deep --strict --verbose=2 "build/Headphone EQ.app"
+          test -f "build/Headphone EQ.app/Contents/Resources/Assets.car"
+          test -f "build/Headphone EQ.app/Contents/Resources/AppIcon.icns"

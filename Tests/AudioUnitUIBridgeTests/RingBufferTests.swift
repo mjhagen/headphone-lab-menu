@@ -1,5 +1,5 @@
 import AVFoundation
-import AudioUnitUIBridge
+import AudioBridge
 import XCTest
 
 final class RingBufferTests: XCTestCase {
@@ -114,5 +114,58 @@ final class RingBufferTests: XCTestCase {
 
   func testZeroCapacityIsRejected() {
     XCTAssertNil(HLMRingCreate(0))
+  }
+
+  func testOverflowDropsNewFramesWithoutOverwritingUnreadAudio() throws {
+    let ring = try XCTUnwrap(HLMRingCreate(4))
+    defer { HLMRingDestroy(ring) }
+
+    let original = try buffer(left: [1, 2, 3, 4], right: [-1, -2, -3, -4])
+    HLMRingWrite(ring, original.mutableAudioBufferList, original.frameLength)
+
+    let overflow = try buffer(left: [5, 6], right: [-5, -6])
+    HLMRingWrite(ring, overflow.mutableAudioBufferList, overflow.frameLength)
+
+    let output = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 4))
+    output.frameLength = 4
+    HLMRingRead(ring, output.mutableAudioBufferList, output.frameLength)
+    let channels = try XCTUnwrap(output.floatChannelData)
+    XCTAssertEqual(Array(UnsafeBufferPointer(start: channels[0], count: 4)), [1, 2, 3, 4])
+    XCTAssertEqual(Array(UnsafeBufferPointer(start: channels[1], count: 4)), [-1, -2, -3, -4])
+  }
+
+  func testAnalyzerReadsMonoSamplesAndTracksPeak() throws {
+    let ring = try XCTUnwrap(HLMRingCreate(8))
+    defer { HLMRingDestroy(ring) }
+    let input = try buffer(left: [0.2, -1.1, 0.4], right: [0.4, -0.9, 0.2])
+
+    HLMRingWriteAnalyzed(ring, input.mutableAudioBufferList, input.frameLength)
+
+    XCTAssertEqual(HLMRingAvailable(ring), 3)
+    var mono = [Float](repeating: 0, count: 3)
+    let read = mono.withUnsafeMutableBufferPointer {
+      HLMRingReadMono(ring, $0.baseAddress!, UInt32($0.count))
+    }
+    XCTAssertEqual(read, 3)
+    XCTAssertEqual(mono[0], 0.3, accuracy: 0.000_001)
+    XCTAssertEqual(mono[1], -1, accuracy: 0.000_001)
+    XCTAssertEqual(mono[2], 0.3, accuracy: 0.000_001)
+    XCTAssertEqual(HLMRingAvailable(ring), 0)
+    XCTAssertEqual(HLMRingTakePeak(ring), 1.1, accuracy: 0.000_001)
+    XCTAssertEqual(HLMRingTakePeak(ring), 0)
+  }
+
+  private func buffer(left: [Float], right: [Float]) throws -> AVAudioPCMBuffer {
+    XCTAssertEqual(left.count, right.count)
+    let buffer = try XCTUnwrap(
+      AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(left.count))
+    )
+    buffer.frameLength = AVAudioFrameCount(left.count)
+    let channels = try XCTUnwrap(buffer.floatChannelData)
+    for index in left.indices {
+      channels[0][index] = left[index]
+      channels[1][index] = right[index]
+    }
+    return buffer
   }
 }

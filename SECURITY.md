@@ -8,6 +8,9 @@ public issue until a fix is available.
 
 ## Privacy boundary
 
-Headphone Lab Menu captures system playback through Core Audio solely to process
-it locally. The app contains no networking or telemetry code. Reports should
-never include captured audio unless the reporter has the right to share it.
+Headphone EQ captures system playback through Core Audio solely to apply the
+selected equalizer profile. Audio never leaves the device. The optional AutoEq
+catalog in Settings downloads the public index and selected profile from
+`raw.githubusercontent.com`; it sends no audio, device details, analytics, or
+telemetry. Reports should never include captured audio unless the reporter has
+the right to share it.

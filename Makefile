@@ -1,8 +1,10 @@
-APP_NAME := Headphone Lab Menu
-EXECUTABLE := HeadphoneLabMenu
+APP_NAME := Headphone EQ
+EXECUTABLE := HeadphoneEQ
 APP_DIR := build/$(APP_NAME).app
-VERSION ?= 1.0.0
-ARCHIVE_PATH := build/HeadphoneLabMenu-$(VERSION)-macOS.zip
+STAGING_ROOT := /tmp/nl.mingo.HeadphoneEQ-build
+STAGING_APP_DIR := $(STAGING_ROOT)/$(APP_NAME).app
+VERSION ?= 2.0.0
+ARCHIVE_PATH := build/HeadphoneEQ-$(VERSION)-macOS.zip
 SIGN_IDENTITY ?= -
 NOTARY_PROFILE ?= headphone-lab-menu
 ENTITLEMENTS := Resources/HeadphoneLabMenu.entitlements
@@ -17,22 +19,27 @@ endif
 
 app:
 	swift build -c release
-	rm -rf "$(APP_DIR)"
-	mkdir -p "$(APP_DIR)/Contents/MacOS" "$(APP_DIR)/Contents/Resources"
-	cp .build/release/$(EXECUTABLE) "$(APP_DIR)/Contents/MacOS/$(EXECUTABLE)"
-	cp Resources/Info.plist "$(APP_DIR)/Contents/Info.plist"
+	rm -rf "$(STAGING_ROOT)"
+	mkdir -p "$(STAGING_APP_DIR)/Contents/MacOS" \
+		"$(STAGING_APP_DIR)/Contents/Resources"
+	cp .build/release/$(EXECUTABLE) \
+		"$(STAGING_APP_DIR)/Contents/MacOS/$(EXECUTABLE)"
+	cp Resources/Info.plist "$(STAGING_APP_DIR)/Contents/Info.plist"
 	xcrun actool Resources/AppIcon.icon \
-		--compile "$(APP_DIR)/Contents/Resources" \
+		--compile "$(STAGING_APP_DIR)/Contents/Resources" \
 		--platform macosx \
 		--minimum-deployment-target 14.2 \
 		--app-icon AppIcon \
 		--output-partial-info-plist build/AppIcon-Info.plist >/dev/null
-	xattr -cr "$(APP_DIR)"
+	xattr -cr "$(STAGING_APP_DIR)"
 	codesign --force --options runtime $(SIGN_TIMESTAMP) \
 		--entitlements "$(ENTITLEMENTS)" \
-		--sign "$(SIGN_IDENTITY)" "$(APP_DIR)"
-	xattr -cr "$(APP_DIR)"
-	codesign --verify --deep --strict --verbose=2 "$(APP_DIR)"
+		--sign "$(SIGN_IDENTITY)" "$(STAGING_APP_DIR)"
+	xattr -cr "$(STAGING_APP_DIR)"
+	codesign --verify --deep --strict --verbose=2 "$(STAGING_APP_DIR)"
+	rm -rf "$(APP_DIR)"
+	ditto --norsrc "$(STAGING_APP_DIR)" "$(APP_DIR)"
+	rm -rf "$(STAGING_ROOT)"
 	@echo "Built $(APP_DIR)"
 
 archive: app

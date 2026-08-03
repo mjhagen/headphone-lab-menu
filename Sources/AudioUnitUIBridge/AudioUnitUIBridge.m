@@ -1,65 +1,7 @@
 #import "AudioUnitUIBridge.h"
-#import <AudioToolbox/AUCocoaUIView.h>
+#import <math.h>
 #import <stdatomic.h>
-
-static NSError *HLMError(OSStatus status, NSString *message) {
-    return [NSError errorWithDomain:NSOSStatusErrorDomain
-                               code:status
-                           userInfo:@{NSLocalizedDescriptionKey: message}];
-}
-
-NSView *HLMCreateAudioUnitView(
-    AudioUnit audioUnit,
-    NSSize preferredSize,
-    NSError **error
-) {
-    UInt32 size = 0;
-    Boolean writable = false;
-    OSStatus status = AudioUnitGetPropertyInfo(
-        audioUnit,
-        kAudioUnitProperty_CocoaUI,
-        kAudioUnitScope_Global,
-        0,
-        &size,
-        &writable
-    );
-    if (status != noErr) {
-        if (error) *error = HLMError(status, @"Headphone Lab did not advertise a Cocoa editor.");
-        return nil;
-    }
-
-    AudioUnitCocoaViewInfo *info = malloc(size);
-    status = AudioUnitGetProperty(
-        audioUnit,
-        kAudioUnitProperty_CocoaUI,
-        kAudioUnitScope_Global,
-        0,
-        info,
-        &size
-    );
-    if (status != noErr) {
-        free(info);
-        if (error) *error = HLMError(status, @"Could not read Headphone Lab’s editor information.");
-        return nil;
-    }
-
-    NSURL *bundleURL = (__bridge NSURL *)info->mCocoaAUViewBundleLocation;
-    NSString *className = (__bridge NSString *)info->mCocoaAUViewClass[0];
-    NSBundle *bundle = [NSBundle bundleWithURL:bundleURL];
-    [bundle load];
-    Class factoryClass = [bundle classNamed:className];
-    id<AUCocoaUIBase> factory = [[factoryClass alloc] init];
-    NSView *view = [factory uiViewForAudioUnit:audioUnit withSize:preferredSize];
-
-    CFRelease(info->mCocoaAUViewBundleLocation);
-    CFRelease(info->mCocoaAUViewClass[0]);
-    free(info);
-
-    if (!view && error) {
-        *error = HLMError(-1, @"Headphone Lab could not create its editor.");
-    }
-    return view;
-}
+#import <string.h>
 
 struct HLMRing {
     float *left;
@@ -67,7 +9,25 @@ struct HLMRing {
     uint32_t capacity;
     _Atomic uint64_t writeIndex;
     _Atomic uint64_t readIndex;
+    _Atomic uint32_t peakBits;
 };
+
+static void HLMRingRecordPeak(HLMRing *ring, float peak) {
+    uint32_t candidate;
+    memcpy(&candidate, &peak, sizeof(candidate));
+    uint32_t current = atomic_load_explicit(&ring->peakBits, memory_order_relaxed);
+    float currentPeak;
+    memcpy(&currentPeak, &current, sizeof(currentPeak));
+    while (peak > currentPeak
+           && !atomic_compare_exchange_weak_explicit(
+               &ring->peakBits,
+               &current,
+               candidate,
+               memory_order_release,
+               memory_order_relaxed)) {
+        memcpy(&currentPeak, &current, sizeof(currentPeak));
+    }
+}
 
 HLMRing *HLMRingCreate(uint32_t capacityFrames) {
     if (capacityFrames == 0) return NULL;
@@ -96,15 +56,17 @@ void HLMRingWrite(HLMRing *ring, const AudioBufferList *buffers, uint32_t frames
     if (!ring || !buffers || buffers->mNumberBuffers == 0) return;
     uint64_t write = atomic_load_explicit(&ring->writeIndex, memory_order_relaxed);
     uint64_t read = atomic_load_explicit(&ring->readIndex, memory_order_acquire);
-    if (write + frames - read > ring->capacity) {
-        read = write + frames - ring->capacity;
-        atomic_store_explicit(&ring->readIndex, read, memory_order_release);
-    }
+    uint64_t used = write - read;
+    uint32_t available = used < ring->capacity
+        ? ring->capacity - (uint32_t)used
+        : 0;
+    uint32_t framesToWrite = frames < available ? frames : available;
+    if (framesToWrite == 0) return;
     const float *left = buffers->mBuffers[0].mData;
     const float *right = buffers->mNumberBuffers > 1
         ? buffers->mBuffers[1].mData
         : NULL;
-    for (uint32_t frame = 0; frame < frames; frame++) {
+    for (uint32_t frame = 0; frame < framesToWrite; frame++) {
         uint32_t slot = (uint32_t)((write + frame) % ring->capacity);
         if (right) {
             ring->left[slot] = left ? left[frame] : 0;
@@ -114,7 +76,61 @@ void HLMRingWrite(HLMRing *ring, const AudioBufferList *buffers, uint32_t frames
             ring->right[slot] = left ? left[frame * 2 + 1] : 0;
         }
     }
-    atomic_store_explicit(&ring->writeIndex, write + frames, memory_order_release);
+    atomic_store_explicit(&ring->writeIndex, write + framesToWrite, memory_order_release);
+}
+
+void HLMRingWriteAnalyzed(
+    HLMRing *ring,
+    const AudioBufferList *buffers,
+    uint32_t frames
+) {
+    if (!ring || !buffers || buffers->mNumberBuffers == 0) return;
+    const float *inputLeft = buffers->mBuffers[0].mData;
+    const float *inputRight = buffers->mNumberBuffers > 1
+        ? buffers->mBuffers[1].mData
+        : NULL;
+    float peak = 0;
+    for (uint32_t frame = 0; frame < frames; frame++) {
+        float left = inputLeft
+            ? inputLeft[inputRight ? frame : frame * 2]
+            : 0;
+        float right = inputRight
+            ? inputRight[frame]
+            : (inputLeft ? inputLeft[frame * 2 + 1] : 0);
+        peak = fmaxf(peak, fmaxf(fabsf(left), fabsf(right)));
+    }
+    HLMRingRecordPeak(ring, peak);
+    HLMRingWrite(ring, buffers, frames);
+}
+
+uint32_t HLMRingAvailable(const HLMRing *ring) {
+    if (!ring) return 0;
+    uint64_t write = atomic_load_explicit(&ring->writeIndex, memory_order_acquire);
+    uint64_t read = atomic_load_explicit(&ring->readIndex, memory_order_relaxed);
+    uint64_t available = write - read;
+    return available < ring->capacity ? (uint32_t)available : ring->capacity;
+}
+
+uint32_t HLMRingReadMono(HLMRing *ring, float *samples, uint32_t maximumFrames) {
+    if (!ring || !samples || maximumFrames == 0) return 0;
+    uint64_t read = atomic_load_explicit(&ring->readIndex, memory_order_relaxed);
+    uint64_t write = atomic_load_explicit(&ring->writeIndex, memory_order_acquire);
+    uint64_t available = write - read;
+    uint32_t frames = available < maximumFrames ? (uint32_t)available : maximumFrames;
+    for (uint32_t frame = 0; frame < frames; frame++) {
+        uint32_t slot = (uint32_t)((read + frame) % ring->capacity);
+        samples[frame] = (ring->left[slot] + ring->right[slot]) * 0.5f;
+    }
+    atomic_store_explicit(&ring->readIndex, read + frames, memory_order_release);
+    return frames;
+}
+
+float HLMRingTakePeak(HLMRing *ring) {
+    if (!ring) return 0;
+    uint32_t bits = atomic_exchange_explicit(&ring->peakBits, 0, memory_order_acq_rel);
+    float peak;
+    memcpy(&peak, &bits, sizeof(peak));
+    return peak;
 }
 
 void HLMRingRead(HLMRing *ring, AudioBufferList *buffers, uint32_t frames) {
