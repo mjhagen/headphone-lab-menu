@@ -1,9 +1,10 @@
 import AVFoundation
 import AppKit
 import OSLog
+import ServiceManagement
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   private let logger = Logger(
     subsystem: Bundle.main.bundleIdentifier ?? "nl.mingo.HeadphoneLabMenu",
     category: "audio"
@@ -17,6 +18,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
   private var gainItem: NSMenuItem!
   private var outputItem: NSMenuItem!
   private var settingsItem: NSMenuItem!
+  private var runAtStartupItem: NSMenuItem!
   private var profile: EQProfile?
   private var previewProfile: EQProfile?
   private var userGain: Float = 0
@@ -64,13 +66,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     )
     settingsItem.target = self
 
+    runAtStartupItem = menu.addItem(
+      withTitle: "Run at Startup",
+      action: #selector(toggleRunAtStartup),
+      keyEquivalent: ""
+    )
+    runAtStartupItem.target = self
+
+    menu.addItem(.separator())
     let quitItem = menu.addItem(
       withTitle: "Quit",
       action: #selector(quit),
       keyEquivalent: "q"
     )
     quitItem.target = self
+    menu.delegate = self
     statusItem.menu = menu
+    refreshRunAtStartupItem()
 
     if let data = UserDefaults.standard.data(forKey: profileDefaultsKey) {
       profile = try? JSONDecoder().decode(EQProfile.self, from: data)
@@ -253,6 +265,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     NSApp.terminate(nil)
   }
 
+  @objc private func toggleRunAtStartup() {
+    let service = SMAppService.mainApp
+
+    do {
+      switch service.status {
+      case .enabled:
+        try service.unregister()
+      case .notRegistered:
+        try service.register()
+      case .requiresApproval:
+        SMAppService.openSystemSettingsLoginItems()
+      case .notFound:
+        showErrorMessage("Headphone EQ must be run from its app bundle to start automatically.")
+      @unknown default:
+        showErrorMessage("The current startup setting could not be determined.")
+      }
+    } catch {
+      logger.error("Updating startup setting failed: \(error.localizedDescription, privacy: .public)")
+      showError(error)
+    }
+
+    refreshRunAtStartupItem()
+  }
+
+  func menuWillOpen(_ menu: NSMenu) {
+    refreshRunAtStartupItem()
+  }
+
   func applicationWillTerminate(_ notification: Notification) {
     pipeline.stop()
   }
@@ -283,6 +323,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       pipeline.isRunning
       ? "Headphone EQ is processing \(pipeline.outputName)"
       : "Headphone EQ is off"
+  }
+
+  private func refreshRunAtStartupItem() {
+    guard runAtStartupItem != nil else { return }
+
+    let status = SMAppService.mainApp.status
+    runAtStartupItem.state = status == .enabled ? .on : .off
+    runAtStartupItem.title =
+      status == .requiresApproval ? "Run at Startup…" : "Run at Startup"
+    runAtStartupItem.toolTip =
+      status == .requiresApproval
+      ? "Enable Headphone EQ in System Settings > General > Login Items"
+      : nil
   }
 
   private func showError(_ error: Error) {

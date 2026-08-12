@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented here.
 
+## 2.0.2 - 2026-08-12
+
+- Add a checked **Run at Startup** menu item backed by macOS Login Items.
+- Keep the menu state synchronized with changes made in System Settings and
+  guide the user there when macOS requires manual approval.
+
 ## 2.0.1 - 2026-08-03
 
 - Tighten the output-trim label and value around the visible knob while keeping
