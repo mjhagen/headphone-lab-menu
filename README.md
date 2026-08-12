@@ -119,7 +119,7 @@ Developer ID-signed and notarized archive using a `notarytool` Keychain profile:
 
 ```sh
 xcrun notarytool store-credentials "headphone-lab-menu"
-make notarize VERSION=2.0.1 \
+make notarize VERSION=2.0.2 \
   SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
 ```
 
