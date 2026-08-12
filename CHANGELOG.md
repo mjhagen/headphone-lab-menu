@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented here.
 
+## 2.1.1 - 2026-08-12
+
+- Rename **Settings…** to **Configure Equalizer…** to better describe the
+  window's operational controls.
+
 ## 2.1.0 - 2026-08-12
 
 - Add automatic signed updates and a **Check for Updates…** menu item using

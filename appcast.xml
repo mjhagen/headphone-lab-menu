@@ -1,10 +1,22 @@
-<?xml version="1.0" encoding="utf-8" standalone="yes"?><!-- sparkle-sign-warning:
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<!-- sparkle-sign-warning:
 IMPORTANT: This file was signed by Sparkle. Any modifications to this file requires re-signing this file with generate_appcast or sign_update! The signed signature will be embedded at the end of this file.
---><rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+-->
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
         <title>Headphone EQ Updates</title>
         <description>Signed updates for Headphone EQ.</description>
         <language>en</language>
+        <item>
+            <title>2.1.1</title>
+            <pubDate>Wed, 12 Aug 2026 21:33:53 +0200</pubDate>
+            <link>https://github.com/mjhagen/headphone-lab-menu</link>
+            <sparkle:version>7</sparkle:version>
+            <sparkle:shortVersionString>2.1.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.2</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/mjhagen/headphone-lab-menu/releases/download/v2.1.1/HeadphoneEQ-2.1.1-macOS.zip" length="4250360" type="application/octet-stream" sparkle:edSignature="HaQlbCg0eqgDrKl7AhEzBzlnVa9Ocammf6tRDonI31s35rT69kG/Ieyvbwui/L+KBAZYERZm7HYTjJcHW31ADA=="/>
+        </item>
         <item>
             <title>2.1.0</title>
             <pubDate>Wed, 12 Aug 2026 13:06:06 +0200</pubDate>
@@ -13,10 +25,11 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
             <sparkle:shortVersionString>2.1.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.2</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/mjhagen/headphone-lab-menu/releases/download/v2.1.0/HeadphoneEQ-2.1.0-macOS.zip" length="4250420" type="application/octet-stream" sparkle:edSignature="BoQ5pAaIAeT/JGWdEDyKoRRqGGkW2r1iMHGj4l47FvHq40/SsuBO6q3vmVfvJ6p7bfIC92w1cCmbP5f23z37Bg=="></enclosure>
+            <enclosure url="https://github.com/mjhagen/headphone-lab-menu/releases/download/v2.1.0/HeadphoneEQ-2.1.0-macOS.zip" length="4250420" type="application/octet-stream" sparkle:edSignature="BoQ5pAaIAeT/JGWdEDyKoRRqGGkW2r1iMHGj4l47FvHq40/SsuBO6q3vmVfvJ6p7bfIC92w1cCmbP5f23z37Bg=="/>
         </item>
     </channel>
-</rss><!-- sparkle-signatures:
-edSignature: yRGVB2JX8GLTy4mumY8UTL8jbtcTMIkBW0lP7V2t5pBPpJyej8VI5uXD1vCdripMXIN/1QkytCicNCu9wlh7Bg==
-length: 1338
+</rss>
+<!-- sparkle-signatures:
+edSignature: fz/ZSjS2bVpfk51Cdsif+T+g6kXqtHwfRZ0ojmgA0tXYLV4LtJYgLnv4Qi+GhM5aBjNXT7kDJPg2BkXa+1mmDQ==
+length: 2099
 -->

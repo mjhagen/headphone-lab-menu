@@ -19,7 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   private var peakLimiterItem: NSMenuItem!
   private var gainItem: NSMenuItem!
   private var outputItem: NSMenuItem!
-  private var settingsItem: NSMenuItem!
+  private var configureItem: NSMenuItem!
   private var checkForUpdatesItem: NSMenuItem!
   private var runAtStartupItem: NSMenuItem!
   private var profile: EQProfile?
@@ -67,12 +67,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     outputItem.isEnabled = false
 
     menu.addItem(.separator())
-    settingsItem = menu.addItem(
-      withTitle: "Settings…",
-      action: #selector(showSettings),
-      keyEquivalent: ","
+    configureItem = menu.addItem(
+      withTitle: "Configure Equalizer…",
+      action: #selector(showConfiguration),
+      keyEquivalent: ""
     )
-    settingsItem.target = self
+    configureItem.target = self
 
     checkForUpdatesItem = menu.addItem(
       withTitle: "Check for Updates…",
@@ -123,7 +123,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     if CommandLine.arguments.contains("--browse-autoeq")
       || CommandLine.arguments.contains("--browse-autoeq-live")
     {
-      showSettings()
+      showConfiguration()
       if !CommandLine.arguments.contains("--browse-autoeq-live") {
         refreshMenu()
         return
@@ -193,7 +193,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
   }
 
-  @objc private func showSettings() {
+  @objc private func showConfiguration() {
     if let autoEqBrowser {
       autoEqBrowser.showWindow(nil)
       return
