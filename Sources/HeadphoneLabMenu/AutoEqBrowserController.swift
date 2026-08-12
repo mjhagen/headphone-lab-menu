@@ -244,7 +244,7 @@ final class AutoEqBrowserController: NSWindowController, NSWindowDelegate,
       backing: .buffered,
       defer: false
     )
-    window.title = "Headphone EQ Settings"
+    window.title = "Headphone EQ Configuration"
     window.minSize = NSSize(width: 700, height: 620)
     window.isReleasedWhenClosed = false
     window.isRestorable = false
