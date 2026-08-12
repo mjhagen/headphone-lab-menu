@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented here.
 
+## 2.1.0 - 2026-08-12
+
+- Add automatic signed updates and a **Check for Updates…** menu item using
+  Sparkle 2.
+
 ## 2.0.2 - 2026-08-12
 
 - Add a checked **Run at Startup** menu item backed by macOS Login Items.

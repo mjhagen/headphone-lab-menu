@@ -28,7 +28,7 @@ page. Unzip the archive and move **Headphone EQ.app** to `/Applications`.
 
 - macOS 14.2 or newer
 - A stereo output device
-- An internet connection when first browsing AutoEq profiles
+- An internet connection when browsing AutoEq profiles or checking for updates
 
 The first launch requests **System Audio Recording** permission. This permission
 allows the Core Audio tap to receive playback; it does not use the microphone.
@@ -119,17 +119,46 @@ Developer ID-signed and notarized archive using a `notarytool` Keychain profile:
 
 ```sh
 xcrun notarytool store-credentials "headphone-lab-menu"
-make notarize VERSION=2.0.2 \
+make notarize VERSION=2.1.0 \
   SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
 ```
 
 The notarized ZIP and SHA-256 checksum are written to `build/`.
 
+## Updates
+
+Headphone EQ uses the MIT-licensed
+[Sparkle](https://sparkle-project.org/) framework. It checks the signed update
+feed once per day and also provides **Check for Updates…** in the menu. Updates
+are downloaded from this repository's GitHub Releases. The feed, release notes,
+and archives are signed with Sparkle's Ed25519 key; archives must also pass
+Apple's code-signing checks before they are installed.
+
+Maintainers keep the private Sparkle key in the login Keychain under the
+`nl.mingo.HeadphoneLabMenu` account. Create or display that key with:
+
+```sh
+make sparkle-key
+```
+
+Only the public key in `Resources/Info.plist` is committed. To publish a
+release, first bump both bundle versions and then run:
+
+```sh
+make release VERSION=2.1.0 \
+  SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
+```
+
+This signs and notarizes the archive, signs it with the local Sparkle key, and
+updates `appcast.xml`. Commit and publish the updated appcast alongside the
+release. The key can later be exported with Sparkle's `generate_keys -x` and
+stored as a GitHub Actions secret; it must never be committed.
+
 ## Usage
 
 Use the headphones icon in the menu bar to see the current enabled state,
 profile, peak limiter, output trim, and output device. Its only actions are
-**Settings…** and **Quit**.
+**Settings…**, **Check for Updates…**, **Run at Startup**, and **Quit**.
 
 The Settings window lets you:
 
