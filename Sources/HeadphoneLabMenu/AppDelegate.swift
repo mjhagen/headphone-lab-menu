@@ -2,6 +2,7 @@ import AVFoundation
 import AppKit
 import OSLog
 import ServiceManagement
+import Sparkle
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -11,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   )
   private let pipeline = AudioPipeline()
   private let autoEqClient = AutoEqCatalogClient()
+  private var updaterController: SPUStandardUpdaterController!
   private var statusItem: NSStatusItem!
   private var enabledItem: NSMenuItem!
   private var profileItem: NSMenuItem!
@@ -18,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   private var gainItem: NSMenuItem!
   private var outputItem: NSMenuItem!
   private var settingsItem: NSMenuItem!
+  private var checkForUpdatesItem: NSMenuItem!
   private var runAtStartupItem: NSMenuItem!
   private var profile: EQProfile?
   private var previewProfile: EQProfile?
@@ -34,6 +37,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
+    updaterController = SPUStandardUpdaterController(
+      startingUpdater: true,
+      updaterDelegate: nil,
+      userDriverDelegate: nil
+    )
 
     statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
     statusItem.button?.image = NSImage(
@@ -65,6 +73,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
       keyEquivalent: ","
     )
     settingsItem.target = self
+
+    checkForUpdatesItem = menu.addItem(
+      withTitle: "Check for Updates…",
+      action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)),
+      keyEquivalent: ""
+    )
+    checkForUpdatesItem.target = updaterController
 
     runAtStartupItem = menu.addItem(
       withTitle: "Run at Startup",
