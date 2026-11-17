@@ -1,10 +1,12 @@
 # Headphone EQ
 
-A tiny, native macOS menu-bar equalizer for system audio. Headphone EQ loads
-standard Equalizer APO parametric profiles without requiring a virtual audio
-driver, a DAW, or a permanent background service.
+A native macOS menu-bar app for system-wide headphone equalization and optional
+binaural loudspeaker listening. Headphone EQ follows the selected macOS output,
+runs processing only when headphones are connected, and loads standard
+Equalizer APO parametric profiles without a virtual audio driver, DAW, or
+permanent background service.
 
-![Headphone EQ configuration with the AutoEq catalog, live spectrum, output trim, and peak limiter](docs/settings.png)
+![Headphone EQ profile browser with the AutoEq catalog, live EQ response, output trim, and peak limiter](docs/settings.png)
 
 ## How it works
 
@@ -55,28 +57,24 @@ feeds headphones or speakers, so update that choice if you change what is attach
 
 ## Binaural soundstage
 
-Choose **Binaural Soundstage…** from the menu bar or **Soundstage…** from the configuration window to hear stereo
-through two virtual loudspeakers. Select among three measured SADIE II ear
-profiles, adjust speaker angle and distance, and shape room width, depth, height,
-treatment, and room presence. Live stereo audio drives an animated energy-flow
-view through the current room geometry. Sparse direct arrivals retire past the
-listener; dimmer reflections fade using the renderer’s frequency-dependent room
-decay. The virtual speakers use a generic enclosed-cabinet model aimed at the
-listener: bass wraps broadly around the boxes, while higher frequencies favor
-the front. Audio reflections and the display share that radiation model. Full view shows
-faint thin bass wrap with stronger forward mid/treble arcs; band views make each
-radiation pattern easier to inspect.
-Actual processed ear waveforms and
-three seconds of output-level history react to the music and settle in silence.
-Choose full-band or frequency-specific input activity; display controls leave
-audio playback unchanged.
-The studio-style panel uses machined rotary dials and illuminated readouts: drag
-up or down, scroll, or use the arrow keys. Hold Shift for fine adjustments;
-double-click a dial to restore its default. **Optimal Placement**, below the
-speaker dials, stays lit while it automatically fits an equilateral stereo triangle
-to the room as dimensions change, with cabinet clearance and both speakers aimed
-at the listener. The mode persists across restarts. Adjust angle or distance to
-return to manual placement.
+Choose **Binaural Soundstage…** from the menu bar or **Soundstage…** from the
+profile window to hear ordinary stereo through two virtual loudspeakers.
+
+![Binaural soundstage with live acoustic visualization, measured listener profile, virtual-speaker placement, and room controls](docs/soundstage.png)
+
+Select among three measured SADIE II listener profiles, adjust speaker angle and
+distance, and shape room width, depth, height, treatment, and presence. Live
+stereo audio drives the room view, processed-ear waveforms, and three seconds of
+output-level history. Full view distinguishes broad bass wrap from more
+forward-directed midrange and treble; the band views isolate each radiation
+pattern. Display controls and freeze affect only the visualization.
+
+The studio-style panel uses machined rotary dials and illuminated readouts. Drag
+up or down, scroll, or use the arrow keys; hold Shift for fine adjustments and
+double-click a dial to restore its default. **Optimal Placement** maintains a
+60-degree stereo triangle, keeps the cabinets clear of the walls, and aims both
+speakers at the listener as room dimensions change. Adjusting angle or distance
+returns to manual placement.
 
 The custom renderer combines directional early reflections with subtle late
 reverberation. Settings persist and crossfade live, before headphone EQ and the
@@ -87,7 +85,8 @@ The renderer reserves 6 dB of headroom and adds 128 frames of buffering latency
 (2.67 ms at 48 kHz), including soundstage bypass; enabled rendering also models
 sound travel time. It virtualizes stereo speakers rather than recovering a
 recording's original 3D scene. Head tracking and personal SOFA import are not
-included. See [renderer details and data attribution](docs/soundstage.md).
+included. See the [soundstage guide](docs/soundstage.md) for controls, signal
+flow, model boundaries, real-time behavior, and data attribution.
 
 ## Equalizer APO profiles
 

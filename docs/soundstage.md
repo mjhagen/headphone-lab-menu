@@ -1,9 +1,10 @@
 # Soundstage renderer
 
-Soundstage presents stereo system audio as two virtual loudspeakers over
-headphones. Open **Soundstage…** from the menu bar or the equalizer configuration
-window. It is off by default. Settings are saved independently of the headphone
-EQ profile and apply live without restarting the Core Audio route.
+Soundstage presents ordinary stereo system audio as two virtual loudspeakers over
+headphones. Open **Binaural Soundstage…** from the menu bar or **Soundstage…**
+from the profile window. It is off by default. Settings are saved independently
+of the headphone EQ profile and apply live without restarting the Core Audio
+route.
 
 Choose one of three measured SADIE II HRTFs (KU100, KEMAR, or listener H10).
 Choose by listening: no generic profile is universally correct for every ear.
@@ -12,13 +13,17 @@ Head tracking and personal SOFA import are not part of this implementation.
 
 ## Interface
 
+![Headphone EQ soundstage panel with live room visualization, listener-profile selection, speaker placement, and room-acoustics controls](soundstage.png)
+
 The rack-style soundstage panel uses generated brushed-metal and machined-knob
 artwork. The room screen, ticks, pointers, labels, and numeric readouts are drawn
 at the current display resolution. Knobs retain native slider accessibility
 semantics and support vertical dragging, horizontal fine movement, scrolling,
 arrow keys, Shift for fine adjustment, and double-click to reset an individual
 parameter. **Reset Room** restores the room defaults while preserving the
-current enabled state and automatic-placement mode. The active/bypass button controls the existing renderer.
+current enabled state and automatic-placement mode. The **Ready / Active /
+Bypass** button enables or bypasses the renderer; **Ready** means soundstage is
+enabled but headphone processing is waiting for a suitable output.
 
 The equalizer window shares the rack surface and output-trim dial. UI rendering
 runs on the main thread; audio rendering remains on the audio callback with
