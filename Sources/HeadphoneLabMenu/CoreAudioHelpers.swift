@@ -4,6 +4,7 @@ import Foundation
 enum AudioRouteError: LocalizedError {
   case osStatus(OSStatus, String)
   case noOutputDevice
+  case outputChanged
   case unexpectedInputChannels(UInt32)
   case unsupportedAudioFormat
 
@@ -24,6 +25,8 @@ enum AudioRouteError: LocalizedError {
       return "\(operation) failed: \(status)\(fourCC)"
     case .noOutputDevice:
       return "No audio output device is selected."
+    case .outputChanged:
+      return "The audio output changed while starting. Select your headphones and try again."
     case .unexpectedInputChannels(let channels):
       return
         "The audio tap exposed \(channels) channels instead of stereo. Select an output-only device, such as headphones, and try again."

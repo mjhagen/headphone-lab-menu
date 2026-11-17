@@ -16,6 +16,7 @@ let package = Package(
         .product(name: "Sparkle", package: "Sparkle"),
       ],
       path: "Sources/HeadphoneLabMenu",
+      resources: [.copy("Resources/HRTF"), .copy("Resources/StudioSkin")],
       linkerSettings: [
         .linkedFramework("AppKit"),
         .linkedFramework("Accelerate"),
@@ -35,6 +36,7 @@ let package = Package(
       publicHeadersPath: "include",
       linkerSettings: [
         .linkedFramework("AppKit"),
+        .linkedFramework("Accelerate"),
         .linkedFramework("AudioToolbox"),
       ]
     ),

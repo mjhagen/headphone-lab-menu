@@ -16,7 +16,8 @@ equalizer, and plays the result through the selected output.
 Audio processing happens entirely locally. The optional AutoEq catalog in the
 configuration window downloads the public profile index and selected preset
 from GitHub; no audio, device information, analytics, or telemetry is
-transmitted. No third-party audio plug-ins are loaded.
+transmitted. No third-party audio plug-ins are loaded. The optional soundstage uses bundled,
+Apache-2.0-licensed SADIE II measurements.
 
 ## Download
 
@@ -30,12 +31,67 @@ page. Unzip the archive and move **Headphone EQ.app** to `/Applications`.
 - A stereo output device
 - An internet connection when browsing AutoEq profiles or checking for updates
 
-The first launch requests **System Audio Recording** permission. This permission
-allows the Core Audio tap to receive playback; it does not use the microphone.
+The first time processing starts, macOS requests **System Audio Recording**
+permission. This allows the Core Audio tap to receive playback; it does not use
+the microphone.
+
+## Automatic headphone detection
+
+Processing runs only when headphones are the selected macOS audio output. Switching
+back to speakers, a display, AirPlay, or an unidentified output stops the audio tap
+and bypasses both EQ and soundstage. The menu shows **Waiting for Headphones**;
+processing resumes automatically when you select headphones again. Turning the
+configuration window's **Enabled** switch off prevents automatic resume, including
+after restarting the app. Your profile, trim, limiter, and soundstage settings stay saved.
+
+Detection uses the selected output's headphone terminal, active audio source, and
+recognizable headphone names, including AirPods. Bluetooth connectivity alone does
+not identify headphones. For a USB DAC or another output that does not identify itself,
+select **Use as Headphone Output** in the menu bar. That choice is remembered
+for the output and its selected source; uncheck it to return to automatic detection.
+The app follows macOS's default playback output; applications that explicitly select
+another device are outside that route. A DAC cannot report whether its analog cable
+feeds headphones or speakers, so update that choice if you change what is attached.
+
+## Binaural soundstage
+
+Choose **Binaural Soundstage…** from the menu bar or **Soundstage…** from the configuration window to hear stereo
+through two virtual loudspeakers. Select among three measured SADIE II ear
+profiles, adjust speaker angle and distance, and shape room width, depth, height,
+treatment, and room presence. Live stereo audio drives an animated energy-flow
+view through the current room geometry. Sparse direct arrivals retire past the
+listener; dimmer reflections fade using the renderer’s frequency-dependent room
+decay. The virtual speakers use a generic enclosed-cabinet model aimed at the
+listener: bass wraps broadly around the boxes, while higher frequencies favor
+the front. Audio reflections and the display share that radiation model. Full view shows
+faint thin bass wrap with stronger forward mid/treble arcs; band views make each
+radiation pattern easier to inspect.
+Actual processed ear waveforms and
+three seconds of output-level history react to the music and settle in silence.
+Choose full-band or frequency-specific input activity; display controls leave
+audio playback unchanged.
+The studio-style panel uses machined rotary dials and illuminated readouts: drag
+up or down, scroll, or use the arrow keys. Hold Shift for fine adjustments;
+double-click a dial to restore its default. **Optimal Placement**, below the
+speaker dials, stays lit while it automatically fits an equilateral stereo triangle
+to the room as dimensions change, with cabinet clearance and both speakers aimed
+at the listener. The mode persists across restarts. Adjust angle or distance to
+return to manual placement.
+
+The custom renderer combines directional early reflections with subtle late
+reverberation. Settings persist and crossfade live, before headphone EQ and the
+limiter. It is off by default and processes entirely locally. Use headphones and
+switch it off for recordings already rendered in binaural audio.
+
+The renderer reserves 6 dB of headroom and adds 128 frames of buffering latency
+(2.67 ms at 48 kHz), including soundstage bypass; enabled rendering also models
+sound travel time. It virtualizes stereo speakers rather than recovering a
+recording's original 3D scene. Head tracking and personal SOFA import are not
+included. See [renderer details and data attribution](docs/soundstage.md).
 
 ## Equalizer APO profiles
 
-Choose **Configure Equalizer…** and use the search field to browse AutoEq's
+Choose **Headphone Profile…** and use the search field to browse AutoEq's
 public catalog of thousands of headphone measurements. The index is cached
 locally for one week; only the selected parametric profile is downloaded and
 applied. Duplicate model names remain visible because they may come from
@@ -115,12 +171,13 @@ make app
 The application is written to `build/Headphone EQ.app`. Launch it with
 `make run`, or install it in `/Applications` with `make install`.
 
-Local builds are ad-hoc signed. Maintainers can create a hardened-runtime,
+Local builds are ad-hoc signed without hardened runtime so their embedded
+Sparkle framework can load. Developer ID builds retain hardened runtime. Maintainers can create a hardened-runtime,
 Developer ID-signed and notarized archive using a `notarytool` Keychain profile:
 
 ```sh
 xcrun notarytool store-credentials "headphone-lab-menu"
-make notarize VERSION=2.1.1 \
+make notarize VERSION=3.0.0 \
   SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
 ```
 
@@ -146,7 +203,7 @@ Only the public key in `Resources/Info.plist` is committed. To publish a
 release, first bump both bundle versions and then run:
 
 ```sh
-make release VERSION=2.1.1 \
+make release VERSION=3.0.0 \
   SIGN_IDENTITY="Developer ID Application: Your Name (TEAMID)"
 ```
 
@@ -157,9 +214,20 @@ stored as a GitHub Actions secret; it must never be committed.
 
 ## Usage
 
-Use the headphones icon in the menu bar to see the current enabled state,
-profile, peak limiter, output trim, and output device. Its only actions are
-**Configure Equalizer…**, **Check for Updates…**, **Run at Startup**, and **Quit**.
+Use the headphones icon in the menu bar to open the native macOS menu. The
+**Headphone Processing** checkmark controls automatic processing on headphones;
+the line below it reports whether audio is being processed or is waiting for headphones.
+
+**Headphone Profile…** shows the selected model and opens the EQ browser.
+**Binaural Soundstage…** shows whether virtual speakers are enabled or paused and
+opens room settings. **Peak Limiter** toggles clipping protection directly;
+**Output Trim…** opens equalizer settings to adjust attenuation. **Audio Output…**
+shows the selected device and opens macOS Sound settings. Manual headphone
+identification appears only for outputs that need it.
+
+The remaining actions are **Check for Updates…**, **Launch at Login**, and
+**Quit Headphone EQ**. The menu uses standard system appearance, SF Symbols,
+checkmarks, and, on macOS 14.4 or newer, native subtitles.
 
 The configuration window lets you:
 
@@ -170,14 +238,13 @@ The configuration window lets you:
 - inspect the selected response and post-EQ audio on a live spectrum display;
 - reduce output gain manually, or enable Peak Limiter to prevent sample
   clipping inside the app;
-- open or clear a local Equalizer APO profile; and
+- open or clear a local Equalizer APO profile;
+- open the binaural soundstage controls; and
 - see the active response and output spectrum while making changes.
 
 ## Known limitations
 
 - Only stereo system playback is supported.
-- After changing the macOS output device, disable and re-enable processing so
-  the route follows the new device.
 
 ## Development
 
@@ -192,4 +259,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for contribution guidelines and
 ## License
 
 The source code and original project artwork are available under the
-[MIT License](LICENSE).
+[MIT License](LICENSE). Bundled SADIE II measurements are provided under
+[Apache-2.0](Sources/HeadphoneLabMenu/Resources/HRTF/LICENSE.txt), with
+[University of York attribution](Sources/HeadphoneLabMenu/Resources/HRTF/NOTICE.txt).
