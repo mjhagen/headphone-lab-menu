@@ -1,0 +1,16 @@
+{
+  "mode": "built-in image_gen",
+  "purpose": "Production skeuomorphic UI material and knob sprite",
+  "assets": [
+    {
+      "name": "rack-panel-v1",
+      "transparent": false,
+      "prompt": "Use case: ui-mockup\nAsset type: production background texture for a skeuomorphic native macOS audio processor, not a mockup of a complete interface.\nPrimary request: A perfectly front-facing, flat, edge-to-edge charcoal-black anodized aluminum surface with extremely fine horizontal brushing, restrained dark graphite variations, and subtle realistic microtexture. It will sit behind crisp live UI labels and controls.\nStyle/medium: premium studio rack hardware material photography, clean precision machining, tactile and understated.\nComposition: square texture swatch, uniform material covers the whole image; no perspective, borders, bevels, objects, panels, lighting hotspots, or vignette. Fine grain should remain understated when scaled down.\nLighting: soft neutral diffuse studio light, dark enough for warm ivory labels and amber readouts to be legible.\nConstraints: no text, logos, knobs, screws, meters, symbols, watermark, branding, or interface; do not copy an existing product."
+    },
+    {
+      "name": "machined-knob-v1",
+      "transparent": true,
+      "prompt": "Use case: ui-mockup\nAsset type: one reusable production knob sprite for a native skeuomorphic audio-software interface.\nPrimary request: One beautiful circular rotary knob, perfectly straight-on orthographic view, isolated centered on genuinely transparent background. A substantial machined satin-silver aluminum outer knurled grip, dark graphite circular inset face, thin polished chamfer rings, fine realistic radial machining and very subtle top-left studio highlight. Precise concentric circles, tactile professional recording-studio hardware.\nComposition: exactly one knob, centered, circle diameter approximately 82 percent of square image, with a soft short contact shadow around its lower edge. No perspective tilt or oval shape. Balanced nearly rotationally symmetric lighting so the software can draw a moving pointer over the stationary knob.\nConstraints: Absolutely no pointer, indicator, notch on the face, tick marks, numbers, text, labels, background plate, extra objects, logos, watermark, or product branding. Real alpha transparency outside the single circular knob. High-resolution clean edges."
+    }
+  ]
+}

@@ -2,6 +2,60 @@
 
 All notable changes to this project will be documented here.
 
+## 3.0.0 - 2026-11-17
+
+- Refine the native macOS menu with clear headphone-processing status, consistent
+  audio labels and SF Symbols, profile and device subtitles, direct processing and
+  limiter toggles, an Audio Output shortcut, and contextual DAC identification.
+
+- Detect the selected headphone output and automatically stop EQ and soundstage on
+  other outputs, resuming when headphones return without changing the saved enable
+  preference. Follow output and source changes, pin playback to the captured device,
+  show the waiting state, and remember manual headphone identification for USB DACs.
+
+- Make cabinet directivity visible in the moving wavefronts. Full view separates
+  faint thin bass wrap from brighter forward mid/treble arcs; energy-based angular
+  contrast hides weak rear treble, and each layer follows its own room decay.
+  Band views retain the existing source filter and physical travel radius.
+
+- Keep Optimal Placement enabled as a persistent illuminated toggle. Room changes
+  recalculate speaker positions automatically; manual angle/distance edits turn
+  it off. Preserve older saved rooms and the mode through room resets.
+
+- Add an Optimal Placement button below the speaker controls. It sets a symmetric
+  equilateral stereo triangle using room width/depth, fits both rotated cabinets
+  with 0.5 m wall clearance, and updates the persisted angle/distance live.
+
+- Add generic enclosed-speaker directivity to the soundstage audio and display.
+  Toed-in cabinet glyphs show the front baffle; bass wraps broadly while off-axis
+  mids and treble are attenuated in each early-reflection filter. The late field
+  uses a diffuse source-power approximation. Direct on-axis HRTFs stay unchanged.
+
+- Clarify live soundstage propagation with fewer wavefronts, direct-arrival
+  retirement, dimmer reflections and spectrum-weighted fading from the audio
+  renderer’s shared room-decay model. Show band-specific RT60 and identify
+  the propagation model in the display legend.
+
+- Drive the room visualization from live stereo energy and frequency content,
+  with actual processed ear waveforms and output-level history. First-order
+  propagation includes floor and ceiling timing; display controls, freeze,
+  silence handling, and Reduce Motion leave playback unchanged. Monitoring uses
+  an independent bounded queue and is disabled when the display is closed.
+
+- Add a skeuomorphic studio interface with generated brushed-metal panels and
+  machined knobs, illuminated room and value displays, tactile active/bypass
+  controls, and accessible mouse, scroll, and keyboard operation. The equalizer
+  window shares the panel material and output-trim dial.
+
+- Add an optional custom binaural soundstage with two virtual loudspeakers,
+  three licensed SADIE II HRTFs, directional early reflections, and subtle late
+  reverberation. Room dimensions, treatment, presence, and speaker placement
+  persist and crossfade live before headphone EQ and the limiter.
+- Add a soundstage configuration window with a live room diagram, accessible
+  from the menu bar and equalizer window.
+- Fix local ad-hoc builds failing to load Sparkle under hardened-runtime library
+  validation; Developer ID builds retain hardened runtime.
+
 ## 2.1.1 - 2026-08-12
 
 - Rename **Settings…** to **Configure Equalizer…** to better describe the

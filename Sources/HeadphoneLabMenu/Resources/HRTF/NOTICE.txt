@@ -1,0 +1,17 @@
+SADIE II Database
+Copyright 2018 University of York.
+Licensed under the Apache License, Version 2.0. See LICENSE.txt.
+
+Original dataset: https://www.york.ac.uk/sadie-project/database.html
+Callum Armstrong, Lewis Thresh, Damian Murphy, and Gavin Kearney.
+A Perceptual Evaluation of Individual and Non-Individual HRTFs: A Case Study
+of the SADIE II Database. Applied Sciences 8(11), 2029 (2018).
+https://doi.org/10.3390/app8112029
+
+Headphone EQ redistributes modified subsets of D1 (KU100), D2 (KEMAR), and
+H10. The already diffuse-field-equalized 48 kHz 256-tap measurements are
+subsampled in direction, padded, and time-aligned for interpolation, with
+original per-ear peak times retained. No additional headphone compensation
+from SADIE II is included. See provenance.json for exact source URLs and
+SHA-256 digests, and Scripts/prepare_hrtf.py in the source distribution.
+The University of York does not endorse Headphone EQ.

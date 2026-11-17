@@ -2,24 +2,13 @@ import AppKit
 import UniformTypeIdentifiers
 
 @MainActor
-private final class ResettableCircularSlider: NSSlider {
-  override func mouseDown(with event: NSEvent) {
-    if event.clickCount == 2 {
-      doubleValue = 0
-      sendAction(action, to: target)
-      return
-    }
-    super.mouseDown(with: event)
-  }
-}
-
-@MainActor
 final class AutoEqBrowserController: NSWindowController, NSWindowDelegate,
   NSTableViewDataSource, NSTableViewDelegate, NSSearchFieldDelegate
 {
   private let client: AutoEqCatalogClient
   private let initialProfile: EQProfile?
   private let spectrumProvider: () -> SpectrumSnapshot?
+  private let onSoundstage: () -> Void
   private let onGainChange: (Float) -> Void
   private let onEnabledChange: (Bool) -> Void
   private let onPeakLimiterChange: (Bool) -> Void
@@ -35,7 +24,7 @@ final class AutoEqBrowserController: NSWindowController, NSWindowDelegate,
   private let progressIndicator = NSProgressIndicator()
   private let useButton = NSButton(title: "Use Profile", target: nil, action: nil)
   private let spectrumView = SpectrumView()
-  private let gainSlider = ResettableCircularSlider()
+  private let gainSlider = HardwareKnob()
   private let gainValueLabel = NSTextField(labelWithString: "0.0 dB")
   private let enabledLabel = NSTextField(labelWithString: "ENABLED")
   private let enabledSwitch = NSSwitch()
@@ -58,6 +47,7 @@ final class AutoEqBrowserController: NSWindowController, NSWindowDelegate,
     initialGain: Float,
     initialEnabled: Bool,
     initialPeakLimiter: Bool,
+    onSoundstage: @escaping () -> Void,
     spectrumProvider: @escaping () -> SpectrumSnapshot?,
     onGainChange: @escaping (Float) -> Void,
     onEnabledChange: @escaping (Bool) -> Void,
@@ -67,6 +57,7 @@ final class AutoEqBrowserController: NSWindowController, NSWindowDelegate,
     onCancel: @escaping () -> Void,
     onClose: @escaping () -> Void
   ) {
+    self.onSoundstage = onSoundstage
     self.client = client
     self.initialProfile = initialProfile
     self.spectrumProvider = spectrumProvider
@@ -124,8 +115,12 @@ final class AutoEqBrowserController: NSWindowController, NSWindowDelegate,
     }
   }
 
-  func setEqualizerEnabled(_ enabled: Bool) {
+  func setEqualizerEnabled(_ enabled: Bool, waitingForHeadphones: Bool = false) {
     enabledSwitch.state = enabled ? .on : .off
+    enabledLabel.stringValue = waitingForHeadphones ? "WAITING" : "ENABLED"
+    enabledSwitch.toolTip = waitingForHeadphones
+      ? "Processing is paused until headphones are the selected output. Switch off to prevent automatic resume."
+      : "Enable processing when headphones are the selected output"
   }
 
   func numberOfRows(in tableView: NSTableView) -> Int {
@@ -187,6 +182,8 @@ final class AutoEqBrowserController: NSWindowController, NSWindowDelegate,
     window?.close()
   }
 
+  @objc private func showSoundstage() { onSoundstage() }
+
   @objc private func changeGain() {
     let gain = Float(gainSlider.doubleValue)
     spectrumView.userGain = gain
@@ -245,6 +242,10 @@ final class AutoEqBrowserController: NSWindowController, NSWindowDelegate,
       defer: false
     )
     window.title = "Headphone EQ Configuration"
+    window.appearance = NSAppearance(named: .darkAqua)
+    window.titlebarAppearsTransparent = true
+    window.backgroundColor = NSColor(calibratedWhite: 0.12, alpha: 1)
+    window.contentView = RackPanelView()
     window.minSize = NSSize(width: 700, height: 620)
     window.isReleasedWhenClosed = false
     window.isRestorable = false
@@ -288,11 +289,14 @@ final class AutoEqBrowserController: NSWindowController, NSWindowDelegate,
     progressIndicator.controlSize = .small
     progressIndicator.startAnimation(nil)
 
+    let soundstageButton = NSButton(title: "Soundstage…", target: self, action: #selector(showSoundstage))
     let spectrumLabel = NSTextField(labelWithString: "LIVE SPECTRUM + EQ RESPONSE")
     spectrumLabel.font = .systemFont(ofSize: 11, weight: .semibold)
     spectrumLabel.textColor = .secondaryLabelColor
 
     gainSlider.sliderType = .circular
+    gainSlider.focusRingType = .none
+    gainSlider.resetValue = 0
     gainSlider.minValue = -24
     gainSlider.maxValue = 0
     gainSlider.doubleValue = Double(spectrumView.userGain)
@@ -300,10 +304,11 @@ final class AutoEqBrowserController: NSWindowController, NSWindowDelegate,
     gainSlider.allowsTickMarkValuesOnly = false
     gainSlider.target = self
     gainSlider.action = #selector(changeGain)
-    gainSlider.toolTip = "Output attenuation — double-click to reset"
+    gainSlider.toolTip = "Drag to attenuate; hold Shift for fine adjustment; double-click to reset"
     gainValueLabel.stringValue = String(format: "%+.1f dB", spectrumView.userGain)
     gainValueLabel.alignment = .center
     gainValueLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+    gainValueLabel.textColor = StudioHardware.amber
     let gainLabel = NSTextField(labelWithString: "OUTPUT TRIM")
     gainLabel.alignment = .center
     gainLabel.font = .systemFont(ofSize: 10, weight: .semibold)
@@ -338,7 +343,7 @@ final class AutoEqBrowserController: NSWindowController, NSWindowDelegate,
     useButton.isEnabled = false
 
     for view in [
-      searchField, currentProfileLabel, scrollView, spectrumLabel, spectrumView,
+      searchField, currentProfileLabel, scrollView, spectrumLabel, spectrumView, soundstageButton,
       enabledLabel, enabledSwitch, gainSlider, gainValueLabel, gainLabel,
       peakLimiterLabel, peakLimiterSwitch, progressIndicator, statusLabel,
       openButton, clearButton, cancelButton, useButton,
@@ -364,6 +369,8 @@ final class AutoEqBrowserController: NSWindowController, NSWindowDelegate,
       scrollView.bottomAnchor.constraint(equalTo: spectrumLabel.topAnchor, constant: -16),
       scrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: 180),
 
+      soundstageButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -18),
+      soundstageButton.centerYAnchor.constraint(equalTo: spectrumLabel.centerYAnchor),
       spectrumLabel.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 16),
       spectrumLabel.bottomAnchor.constraint(equalTo: spectrumView.topAnchor, constant: -7),
 

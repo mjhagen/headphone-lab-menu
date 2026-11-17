@@ -3,7 +3,7 @@ EXECUTABLE := HeadphoneEQ
 APP_DIR := build/$(APP_NAME).app
 STAGING_ROOT := /tmp/nl.mingo.HeadphoneEQ-build
 STAGING_APP_DIR := $(STAGING_ROOT)/$(APP_NAME).app
-VERSION ?= 2.1.1
+VERSION ?= 3.0.0
 ARCHIVE_PATH := build/HeadphoneEQ-$(VERSION)-macOS.zip
 SIGN_IDENTITY ?= -
 NOTARY_PROFILE ?= headphone-lab-menu
@@ -23,8 +23,10 @@ endif
 
 ifeq ($(SIGN_IDENTITY),-)
 SIGN_TIMESTAMP := --timestamp=none
+SIGN_RUNTIME_OPTIONS :=
 else
 SIGN_TIMESTAMP := --timestamp
+SIGN_RUNTIME_OPTIONS := --options runtime
 endif
 
 .PHONY: app archive appcast release sparkle-key notarize staple clean run install
@@ -40,6 +42,8 @@ app:
 		"$(STAGING_APP_DIR)/Contents/MacOS/$(EXECUTABLE)"
 	ditto --norsrc "$(SPARKLE_FRAMEWORK_SOURCE)" "$(SPARKLE_FRAMEWORK)"
 	cp Resources/Info.plist "$(STAGING_APP_DIR)/Contents/Info.plist"
+	ditto Sources/HeadphoneLabMenu/Resources/HRTF "$(STAGING_APP_DIR)/Contents/Resources/HRTF"
+	ditto --norsrc Sources/HeadphoneLabMenu/Resources/StudioSkin "$(STAGING_APP_DIR)/Contents/Resources/StudioSkin"
 	cp .build/checkouts/Sparkle/LICENSE \
 		"$(STAGING_APP_DIR)/Contents/Resources/Sparkle-LICENSE.txt"
 	chmod 644 "$(STAGING_APP_DIR)/Contents/Resources/Sparkle-LICENSE.txt"
@@ -50,28 +54,29 @@ app:
 		--app-icon AppIcon \
 		--output-partial-info-plist build/AppIcon-Info.plist >/dev/null
 	xattr -cr "$(STAGING_APP_DIR)"
-	codesign --force --options runtime $(SIGN_TIMESTAMP) \
+	codesign --force $(SIGN_RUNTIME_OPTIONS) $(SIGN_TIMESTAMP) \
 		--sign "$(SIGN_IDENTITY)" \
 		"$(SPARKLE_FRAMEWORK)/Versions/B/XPCServices/Installer.xpc"
-	codesign --force --options runtime $(SIGN_TIMESTAMP) \
+	codesign --force $(SIGN_RUNTIME_OPTIONS) $(SIGN_TIMESTAMP) \
 		--preserve-metadata=entitlements \
 		--sign "$(SIGN_IDENTITY)" \
 		"$(SPARKLE_FRAMEWORK)/Versions/B/XPCServices/Downloader.xpc"
-	codesign --force --options runtime $(SIGN_TIMESTAMP) \
+	codesign --force $(SIGN_RUNTIME_OPTIONS) $(SIGN_TIMESTAMP) \
 		--sign "$(SIGN_IDENTITY)" \
 		"$(SPARKLE_FRAMEWORK)/Versions/B/Autoupdate"
-	codesign --force --options runtime $(SIGN_TIMESTAMP) \
+	codesign --force $(SIGN_RUNTIME_OPTIONS) $(SIGN_TIMESTAMP) \
 		--sign "$(SIGN_IDENTITY)" \
 		"$(SPARKLE_FRAMEWORK)/Versions/B/Updater.app"
-	codesign --force --options runtime $(SIGN_TIMESTAMP) \
+	codesign --force $(SIGN_RUNTIME_OPTIONS) $(SIGN_TIMESTAMP) \
 		--sign "$(SIGN_IDENTITY)" "$(SPARKLE_FRAMEWORK)"
-	codesign --force --options runtime $(SIGN_TIMESTAMP) \
+	codesign --force $(SIGN_RUNTIME_OPTIONS) $(SIGN_TIMESTAMP) \
 		--entitlements "$(ENTITLEMENTS)" \
 		--sign "$(SIGN_IDENTITY)" "$(STAGING_APP_DIR)"
 	xattr -cr "$(STAGING_APP_DIR)"
 	codesign --verify --deep --strict --verbose=2 "$(STAGING_APP_DIR)"
 	rm -rf "$(APP_DIR)"
 	ditto --norsrc "$(STAGING_APP_DIR)" "$(APP_DIR)"
+	xattr -cr "$(APP_DIR)"
 	rm -rf "$(STAGING_ROOT)"
 	@echo "Built $(APP_DIR)"
 

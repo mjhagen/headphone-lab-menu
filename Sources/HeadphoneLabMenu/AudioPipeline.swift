@@ -11,6 +11,11 @@ final class AudioPipeline {
   private(set) var outputName = "Current output"
   private var engine: AVAudioEngine?
   private var sourceNode: AVAudioSourceNode?
+  private var spatialRenderer: SpatialAudioRenderer?
+  private var liveMonitor: LiveAudioMonitor?
+  private var liveMonitoringRequested = false
+  private var liveStream: UInt64 = 0
+  private let liveReader = LiveAudioReader()
   private var equalizer: AVAudioUnitEQ?
   private var peakLimiter: AVAudioUnitEffect?
   private var safetyTrim: AVAudioUnitEQ?
@@ -24,10 +29,12 @@ final class AudioPipeline {
   private var aggregateID = AudioObjectID(kAudioObjectUnknown)
 
   func start(
+    output: AudioOutputRoute,
     profile: EQProfile?,
     userGain: Float = 0,
-    peakLimiterEnabled: Bool = false
-  ) async throws {
+    peakLimiterEnabled: Bool = false,
+    spatialSettings: SpatialAudioSettings = SpatialAudioSettings()
+  ) throws {
     guard !isRunning else { return }
 
     let newEngine = AVAudioEngine()
@@ -63,6 +70,16 @@ final class AudioPipeline {
       guard defaultOutput != kAudioObjectUnknown else {
         throw AudioRouteError.noOutputDevice
       }
+      guard defaultOutput == output.deviceID else { throw AudioRouteError.outputChanged }
+      // Pin playback to the same physical output as the tap. Following the default
+      // independently could send headphone processing to speakers during a switch.
+      guard let outputUnit = newEngine.outputNode.audioUnit else {
+        throw AudioRouteError.noOutputDevice
+      }
+      var playbackDevice = output.deviceID
+      try check(AudioUnitSetProperty(outputUnit, kAudioOutputUnitProperty_CurrentDevice,
+        kAudioUnitScope_Global, 0, &playbackDevice,
+        UInt32(MemoryLayout<AudioDeviceID>.size)), "Selecting the headphone output")
 
       let outputUID = try readString(
         from: defaultOutput,
@@ -158,9 +175,17 @@ final class AudioPipeline {
       }
       ring = newRing
 
+      let newSpatial = try SpatialAudioRenderer(sampleRate: format.sampleRate, settings: spatialSettings)
+      spatialRenderer = newSpatial
+      let newLiveMonitor = try LiveAudioMonitor(sampleRate: format.sampleRate)
+      liveMonitor = newLiveMonitor
+      liveStream &+= 1
+      HLMLiveMonitorSetEnabled(newLiveMonitor.handle,liveMonitoringRequested)
+
       nonisolated(unsafe) let renderBlock: AVAudioSourceNodeRenderBlock = {
-        [newRing] _, _, frameCount, audioBufferList -> OSStatus in
+        [newRing, newSpatial, newLiveMonitor] _, _, frameCount, audioBufferList -> OSStatus in
         HLMRingRead(newRing, audioBufferList, frameCount)
+        HLMLiveMonitorProcess(newLiveMonitor.handle,newSpatial.handle,audioBufferList,frameCount)
         return noErr
       }
       let source = AVAudioSourceNode(format: format, renderBlock: renderBlock)
@@ -183,6 +208,7 @@ final class AudioPipeline {
         HLMRingWriteAnalyzed(newAnalysisRing, buffer.audioBufferList, buffer.frameLength)
       }
       analysisTapInstalled = true
+      guard AudioOutputRoute.current() == output else { throw AudioRouteError.outputChanged }
       newEngine.prepare()
       try newEngine.start()
 
@@ -223,6 +249,10 @@ final class AudioPipeline {
       newEngine.detach(newSafetyTrim)
       newEngine.detach(newPeakLimiter)
       newEngine.detach(newEqualizer)
+      if let sourceNode { newEngine.detach(sourceNode) }
+      sourceNode = nil
+      spatialRenderer = nil
+      liveMonitor = nil
       cleanupCoreAudioObjects()
       throw error
     }
@@ -252,6 +282,8 @@ final class AudioPipeline {
     peakLimiter = nil
     safetyTrim = nil
     sourceNode = nil
+    spatialRenderer = nil
+    liveMonitor = nil
     isRunning = false
     cleanupCoreAudioObjects()
   }
@@ -261,9 +293,28 @@ final class AudioPipeline {
     configure(equalizer, with: profile, userGain: userGain)
   }
 
+  func applySpatial(_ settings: SpatialAudioSettings,
+                    completion: @escaping @MainActor @Sendable (String?) -> Void) {
+    guard let spatialRenderer else { completion(nil); return }
+    spatialRenderer.update(settings) { error in
+      Task { @MainActor in completion(error) }
+    }
+  }
+
   func setPeakLimiter(_ enabled: Bool) {
     guard let peakLimiter, let safetyTrim else { return }
     configurePeakLimiter(peakLimiter, safetyTrim: safetyTrim, enabled: enabled)
+  }
+
+  func setLiveMonitoring(_ enabled: Bool) {
+    guard liveMonitoringRequested != enabled else { return }
+    liveMonitoringRequested = enabled
+    if let liveMonitor { HLMLiveMonitorSetEnabled(liveMonitor.handle,enabled) }
+  }
+
+  func liveSoundstageSnapshot() -> LiveAudioSnapshot? {
+    guard isRunning, liveMonitoringRequested, let liveMonitor else { return nil }
+    return liveReader.snapshot(monitor: liveMonitor,sampleRate: analysisSampleRate,stream: liveStream)
   }
 
   func spectrumSnapshot() -> SpectrumSnapshot? {

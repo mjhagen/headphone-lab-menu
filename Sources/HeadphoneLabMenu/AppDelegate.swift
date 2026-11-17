@@ -14,21 +14,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   private let autoEqClient = AutoEqCatalogClient()
   private var updaterController: SPUStandardUpdaterController!
   private var statusItem: NSStatusItem!
-  private var enabledItem: NSMenuItem!
-  private var profileItem: NSMenuItem!
-  private var peakLimiterItem: NSMenuItem!
-  private var gainItem: NSMenuItem!
-  private var outputItem: NSMenuItem!
-  private var configureItem: NSMenuItem!
-  private var checkForUpdatesItem: NSMenuItem!
-  private var runAtStartupItem: NSMenuItem!
+  private let headphoneMenu = HeadphoneMenu()
+  private let outputMonitor = AudioOutputMonitor()
+  private lazy var routing = HeadphoneRoutingController(
+    enabled: equalizerEnabled,
+    headphoneOutputKeys: Set(UserDefaults.standard.stringArray(forKey: "HeadphoneOutputSources") ?? []),
+    start: { [unowned self] output in
+      try self.pipeline.start(
+        output: output,
+        profile: self.previewProfile ?? self.profile,
+        userGain: self.userGain,
+        peakLimiterEnabled: self.peakLimiterEnabled,
+        spatialSettings: self.spatialSettings
+      )
+      self.logger.info("Equalizer started on \(output.name, privacy: .public)")
+    },
+    stop: { [unowned self] in self.pipeline.stop() }
+  )
   private var profile: EQProfile?
   private var previewProfile: EQProfile?
   private var userGain: Float = 0
   private var equalizerEnabled = true
   private var peakLimiterEnabled = false
   private var autoEqBrowser: AutoEqBrowserController?
-  private var busy = false
+  private var spatialWindow: SpatialAudioController?
+  private var spatialSettings = SpatialAudioSettings()
+  private var spatialUpdateTask: Task<Void, Never>?
+  private var spatialRevision = 0
+  private let spatialDefaultsKey = "SpatialAudioSettings"
   private let profileDefaultsKey = "EqualizerAPOProfile"
   private let gainDefaultsKey = "UserGainDecibels"
   private let enabledDefaultsKey = "EqualizerEnabled"
@@ -50,55 +63,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     )
     statusItem.button?.imagePosition = .imageOnly
 
-    let menu = NSMenu()
-    enabledItem = menu.addItem(withTitle: "Enabled: Starting…", action: nil, keyEquivalent: "")
-    enabledItem.isEnabled = false
+    let bindings: [(NSMenuItem, Selector)] = [
+      (headphoneMenu.processingItem, #selector(toggleProcessing)),
+      (headphoneMenu.profileItem, #selector(showConfiguration)),
+      (headphoneMenu.soundstageItem, #selector(showSoundstage)),
+      (headphoneMenu.limiterItem, #selector(toggleLimiter)),
+      (headphoneMenu.trimItem, #selector(showConfiguration)),
+      (headphoneMenu.outputItem, #selector(showAudioOutput)),
+      (headphoneMenu.identifyItem, #selector(toggleHeadphoneOutput)),
+      (headphoneMenu.loginItem, #selector(toggleRunAtStartup)),
+      (headphoneMenu.quitItem, #selector(quit)),
+    ]
+    for (item, action) in bindings {
+      item.target = self
+      item.action = action
+    }
+    headphoneMenu.updatesItem.target = updaterController
+    headphoneMenu.updatesItem.action = #selector(SPUStandardUpdaterController.checkForUpdates(_:))
+    headphoneMenu.menu.delegate = self
+    statusItem.menu = headphoneMenu.menu
 
-    profileItem = menu.addItem(withTitle: "Profile: Flat", action: nil, keyEquivalent: "")
-    profileItem.isEnabled = false
-
-    peakLimiterItem = menu.addItem(withTitle: "Peak Limiter: Off", action: nil, keyEquivalent: "")
-    peakLimiterItem.isEnabled = false
-
-    gainItem = menu.addItem(withTitle: "Output Trim: 0.0 dB", action: nil, keyEquivalent: "")
-    gainItem.isEnabled = false
-
-    outputItem = menu.addItem(withTitle: "Output: —", action: nil, keyEquivalent: "")
-    outputItem.isEnabled = false
-
-    menu.addItem(.separator())
-    configureItem = menu.addItem(
-      withTitle: "Configure Equalizer…",
-      action: #selector(showConfiguration),
-      keyEquivalent: ""
-    )
-    configureItem.target = self
-
-    checkForUpdatesItem = menu.addItem(
-      withTitle: "Check for Updates…",
-      action: #selector(SPUStandardUpdaterController.checkForUpdates(_:)),
-      keyEquivalent: ""
-    )
-    checkForUpdatesItem.target = updaterController
-
-    runAtStartupItem = menu.addItem(
-      withTitle: "Run at Startup",
-      action: #selector(toggleRunAtStartup),
-      keyEquivalent: ""
-    )
-    runAtStartupItem.target = self
-
-    menu.addItem(.separator())
-    let quitItem = menu.addItem(
-      withTitle: "Quit",
-      action: #selector(quit),
-      keyEquivalent: "q"
-    )
-    quitItem.target = self
-    menu.delegate = self
-    statusItem.menu = menu
-    refreshRunAtStartupItem()
-
+    if let data = UserDefaults.standard.data(forKey: spatialDefaultsKey),
+      let saved = try? JSONDecoder().decode(SpatialAudioSettings.self, from: data) {
+      spatialSettings = saved.normalized
+    }
     if let data = UserDefaults.standard.data(forKey: profileDefaultsKey) {
       profile = try? JSONDecoder().decode(EQProfile.self, from: data)
     }
@@ -120,6 +108,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
       UserDefaults.standard.set(userGain, forKey: gainDefaultsKey)
     }
 
+    refreshRunAtStartupItem()
+
+    if CommandLine.arguments.contains("--browse-soundstage") {
+      showSoundstage()
+      refreshMenu()
+      return
+    }
+
     if CommandLine.arguments.contains("--browse-autoeq")
       || CommandLine.arguments.contains("--browse-autoeq-live")
     {
@@ -130,65 +126,94 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
       }
     }
 
-    if !equalizerEnabled {
-      refreshMenu()
-      return
-    }
-
-    setBusy(true, title: "Starting…")
-    Task {
-      do {
-        try await pipeline.start(
-          profile: profile,
-          userGain: userGain,
-          peakLimiterEnabled: peakLimiterEnabled
-        )
-        logger.info("Equalizer started on \(self.pipeline.outputName, privacy: .public)")
-        autoEqBrowser?.setEqualizerEnabled(true)
-        refreshMenu()
-      } catch {
-        logger.error("Equalizer startup failed: \(error.localizedDescription, privacy: .public)")
-        setBusy(false)
-        showError(error)
-        refreshMenu()
+    routing.onChange = { [weak self] in self?.refreshMenu() }
+    routing.onError = { [weak self] error in
+      self?.logger.error("Equalizer startup failed: \(error.localizedDescription, privacy: .public)")
+      if case AudioRouteError.outputChanged = error {
+        self?.outputMonitor.refresh(force: true)
+      } else {
+        self?.showError(error)
       }
+    }
+    outputMonitor.onChange = { [weak self] output in self?.routing.updateOutput(output) }
+    do {
+      try outputMonitor.start()
+    } catch {
+      showError(error)
+      refreshMenu()
     }
   }
 
+  @objc private func toggleProcessing() {
+    setEqualizerEnabled(!equalizerEnabled)
+  }
+
+  @objc private func toggleLimiter() {
+    setPeakLimiter(!peakLimiterEnabled)
+  }
+
+  @objc private func showAudioOutput() {
+    NSWorkspace.shared.open(URL(fileURLWithPath: "/System/Library/PreferencePanes/Sound.prefPane"))
+  }
+
+  @objc private func toggleHeadphoneOutput() {
+    routing.setHeadphoneOverride(!routing.usesHeadphoneOverride)
+    UserDefaults.standard.set(routing.headphoneOutputKeys.sorted(), forKey: "HeadphoneOutputSources")
+  }
+
   private func setEqualizerEnabled(_ enabled: Bool) {
-    guard !busy else {
-      autoEqBrowser?.setEqualizerEnabled(pipeline.isRunning)
-      return
-    }
-    guard enabled != pipeline.isRunning else { return }
     equalizerEnabled = enabled
     UserDefaults.standard.set(enabled, forKey: enabledDefaultsKey)
+    routing.setEnabled(enabled)
+  }
 
-    if !enabled {
-      pipeline.stop()
-      autoEqBrowser?.setEqualizerEnabled(false)
+  @objc private func showSoundstage() {
+    if let spatialWindow { spatialWindow.showWindow(nil); return }
+    let controller = SpatialAudioController(settings: spatialSettings,
+      liveProvider: { [weak self] in self?.pipeline.liveSoundstageSnapshot() },
+      onMonitoringChange: { [weak self] enabled in self?.pipeline.setLiveMonitoring(enabled) },
+      onChange: { [weak self] settings in self?.setSpatialSettings(settings) },
+      onClose: { [weak self] in self?.spatialWindow = nil })
+    spatialWindow = controller
+    controller.setProcessingActive(pipeline.isRunning)
+    controller.showWindow(nil)
+  }
+
+  private func setSpatialSettings(_ settings: SpatialAudioSettings) {
+    let enableRequested = !spatialSettings.enabled && settings.enabled
+    spatialSettings = settings.normalized
+    if let data = try? JSONEncoder().encode(spatialSettings) {
+      UserDefaults.standard.set(data, forKey: spatialDefaultsKey)
+    }
+    spatialRevision += 1
+    let revision = spatialRevision
+    spatialUpdateTask?.cancel()
+    if enableRequested && !pipeline.isRunning {
+      setEqualizerEnabled(true)
       refreshMenu()
-    } else {
-      setBusy(true)
-      Task {
-        do {
-          try await pipeline.start(
-            profile: previewProfile ?? profile,
-            userGain: userGain,
-            peakLimiterEnabled: peakLimiterEnabled
-          )
-          logger.info("Equalizer started on \(self.pipeline.outputName, privacy: .public)")
-          autoEqBrowser?.setEqualizerEnabled(true)
-        } catch {
-          self.equalizerEnabled = false
-          UserDefaults.standard.set(false, forKey: self.enabledDefaultsKey)
-          logger.error("Startup failed: \(error.localizedDescription, privacy: .public)")
-          NSLog("Headphone EQ startup failed: %@", error.localizedDescription)
-          autoEqBrowser?.setEqualizerEnabled(false)
-          showError(error)
+      return
+    }
+    refreshMenu()
+    guard pipeline.isRunning else { return }
+    spatialWindow?.setStatus("Applying soundstage…")
+    spatialUpdateTask = Task { [weak self] in
+      do { try await Task.sleep(for: .milliseconds(120)) }
+      catch { return }
+      guard let self, !Task.isCancelled else { return }
+      self.pipeline.applySpatial(self.spatialSettings) { [weak self] error in
+        guard let self, self.spatialRevision == revision else { return }
+        if let error {
+          self.spatialSettings.enabled = false
+          if let data = try? JSONEncoder().encode(self.spatialSettings) {
+            UserDefaults.standard.set(data, forKey: self.spatialDefaultsKey)
+          }
+          self.pipeline.applySpatial(self.spatialSettings) { _ in }
+          self.spatialWindow?.setSettings(self.spatialSettings)
+          self.refreshMenu()
+          self.showErrorMessage(error)
+        } else {
+          self.spatialWindow?.setSettings(self.spatialSettings)
         }
-        setBusy(false)
-        refreshMenu()
       }
     }
   }
@@ -204,8 +229,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
       client: autoEqClient,
       initialProfile: originalProfile,
       initialGain: userGain,
-      initialEnabled: pipeline.isRunning,
+      initialEnabled: equalizerEnabled,
       initialPeakLimiter: peakLimiterEnabled,
+      onSoundstage: { [weak self] in self?.showSoundstage() },
       spectrumProvider: { [weak self] in
         self?.pipeline.spectrumSnapshot()
       },
@@ -232,6 +258,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
       }
     )
     autoEqBrowser = browser
+    refreshMenu()
     browser.showWindow(nil)
   }
 
@@ -276,6 +303,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   }
 
   @objc private func quit() {
+    outputMonitor.stop()
     pipeline.stop()
     NSApp.terminate(nil)
   }
@@ -305,49 +333,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
   }
 
   func menuWillOpen(_ menu: NSMenu) {
+    outputMonitor.refresh()
     refreshRunAtStartupItem()
   }
 
   func applicationWillTerminate(_ notification: Notification) {
+    outputMonitor.stop()
     pipeline.stop()
   }
 
-  private func setBusy(_ value: Bool, title: String? = nil) {
-    busy = value
-    enabledItem?.title =
-      value
-      ? title.map { "Enabled: \($0)" } ?? "Enabled: Starting…"
-      : "Enabled: Off"
-  }
-
   private func refreshMenu() {
-    busy = false
-    enabledItem.title = pipeline.isRunning ? "Enabled: On" : "Enabled: Off"
     let displayedProfile = previewProfile ?? profile
-    profileItem.title =
-      displayedProfile.map {
-        let prefix = previewProfile == nil ? "Profile" : "Preview"
-        return "\(prefix): \($0.name) (\($0.filters.count) filters)"
-      } ?? "Profile: Flat"
-    peakLimiterItem.title = "Peak Limiter: \(peakLimiterEnabled ? "On" : "Off")"
-    gainItem.title = String(format: "Output Trim: %+.1f dB", userGain)
-    outputItem.title = pipeline.isRunning ? "Output: \(pipeline.outputName)" : "Output: —"
-    autoEqBrowser?.setEqualizerEnabled(pipeline.isRunning)
-    statusItem.button?.appearsDisabled = !pipeline.isRunning
+    headphoneMenu.update(enabled: equalizerEnabled, processing: pipeline.isRunning,
+      failed: routing.error != nil, outputName: routing.output?.name,
+      headphonesSelected: routing.headphonesSelected,
+      allowsIdentification: routing.output?.allowsHeadphoneIdentification == true,
+      headphoneOverride: routing.usesHeadphoneOverride,
+      profileName: displayedProfile?.name, previewing: previewProfile != nil,
+      soundstageEnabled: spatialSettings.enabled, limiterEnabled: peakLimiterEnabled, gain: userGain)
+    let waiting = equalizerEnabled && !routing.headphonesSelected
+    autoEqBrowser?.setEqualizerEnabled(equalizerEnabled, waitingForHeadphones: waiting)
+    spatialWindow?.setProcessingActive(pipeline.isRunning)
+    statusItem.button?.appearsDisabled = false
     statusItem.button?.toolTip =
       pipeline.isRunning
       ? "Headphone EQ is processing \(pipeline.outputName)"
-      : "Headphone EQ is off"
+      : waiting ? "Headphone EQ is waiting for headphones" : "Headphone EQ is off"
   }
 
   private func refreshRunAtStartupItem() {
-    guard runAtStartupItem != nil else { return }
-
     let status = SMAppService.mainApp.status
-    runAtStartupItem.state = status == .enabled ? .on : .off
-    runAtStartupItem.title =
-      status == .requiresApproval ? "Run at Startup…" : "Run at Startup"
-    runAtStartupItem.toolTip =
+    headphoneMenu.loginItem.state = status == .enabled ? .on : .off
+    headphoneMenu.loginItem.title =
+      status == .requiresApproval ? "Launch at Login…" : "Launch at Login"
+    headphoneMenu.loginItem.toolTip =
       status == .requiresApproval
       ? "Enable Headphone EQ in System Settings > General > Login Items"
       : nil
